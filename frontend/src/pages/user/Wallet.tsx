@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import {
   Wallet as WalletIcon,
@@ -29,7 +29,7 @@ const MIN_DEPOSIT = 500;
 const MIN_WITHDRAWAL = 1000;
 
 export default function Wallet() {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { user } = useAuthStore();
   const { data: wallet, isLoading } = useUserWallet(user?.id || '');
   const requestDeposit = useRequestDeposit();
@@ -139,7 +139,7 @@ export default function Wallet() {
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
-              onClick={() => navigate('/game')}
+              onClick={() => setLocation('/game')}
               className="text-white hover:text-[#FFD700]"
             >
               ← Back
@@ -407,7 +407,7 @@ export default function Wallet() {
         >
           <Card
             className="bg-[#1a1f3a] border-[#FFD700]/30 p-6 cursor-pointer hover:border-[#FFD700] transition-colors"
-            onClick={() => navigate('/user/transactions')}
+            onClick={() => setLocation('/user/transactions')}
           >
             <h4 className="text-lg font-semibold text-white mb-2">Transaction History</h4>
             <p className="text-gray-400 text-sm">View all deposits and withdrawals</p>
@@ -415,7 +415,7 @@ export default function Wallet() {
 
           <Card
             className="bg-[#1a1f3a] border-[#FFD700]/30 p-6 cursor-pointer hover:border-[#FFD700] transition-colors"
-            onClick={() => navigate('/user/bonuses')}
+            onClick={() => setLocation('/user/bonuses')}
           >
             <h4 className="text-lg font-semibold text-white mb-2">Bonus Management</h4>
             <p className="text-gray-400 text-sm">Check your active bonuses</p>

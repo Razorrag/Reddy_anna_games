@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import { User, Mail, Phone, Calendar, Edit2, Save, X, Shield, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
 
 export default function Profile() {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { user, logout } = useAuthStore();
   const { data: profile, isLoading } = useUserProfile(user?.id || '');
   const updateProfile = useUpdateProfile();
@@ -77,7 +77,7 @@ export default function Profile() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    setLocation('/login');
     toast.info('Logged out successfully');
   };
 
@@ -133,7 +133,7 @@ export default function Profile() {
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
-                onClick={() => navigate('/game')}
+                onClick={() => setLocation('/game')}
                 className="text-white hover:text-[#FFD700]"
               >
                 ← Back to Game
@@ -317,7 +317,7 @@ export default function Profile() {
         >
           <Card
             className="bg-[#1a1f3a] border-[#FFD700]/30 p-6 cursor-pointer hover:border-[#FFD700] transition-colors"
-            onClick={() => navigate('/user/wallet')}
+            onClick={() => setLocation('/user/wallet')}
           >
             <h4 className="text-lg font-semibold text-white mb-2">Wallet</h4>
             <p className="text-gray-400 text-sm">Manage your balance and transactions</p>
@@ -325,7 +325,7 @@ export default function Profile() {
 
           <Card
             className="bg-[#1a1f3a] border-[#FFD700]/30 p-6 cursor-pointer hover:border-[#FFD700] transition-colors"
-            onClick={() => navigate('/user/referrals')}
+            onClick={() => setLocation('/user/referrals')}
           >
             <h4 className="text-lg font-semibold text-white mb-2">Referrals</h4>
             <p className="text-gray-400 text-sm">Invite friends and earn rewards</p>
@@ -333,7 +333,7 @@ export default function Profile() {
 
           <Card
             className="bg-[#1a1f3a] border-[#FFD700]/30 p-6 cursor-pointer hover:border-[#FFD700] transition-colors"
-            onClick={() => navigate('/user/bonuses')}
+            onClick={() => setLocation('/user/bonuses')}
           >
             <h4 className="text-lg font-semibold text-white mb-2">Bonuses</h4>
             <p className="text-gray-400 text-sm">View your active bonuses</p>
@@ -341,7 +341,7 @@ export default function Profile() {
 
           <Card
             className="bg-[#1a1f3a] border-[#FFD700]/30 p-6 cursor-pointer hover:border-[#FFD700] transition-colors"
-            onClick={() => navigate('/user/settings')}
+            onClick={() => setLocation('/user/settings')}
           >
             <h4 className="text-lg font-semibold text-white mb-2">Settings</h4>
             <p className="text-gray-400 text-sm">Manage your account preferences</p>

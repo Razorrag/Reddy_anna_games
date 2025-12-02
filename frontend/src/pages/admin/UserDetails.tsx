@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { ArrowLeft, Edit, Ban, CheckCircle, XCircle, Trash2, Key, Mail, Phone, Calendar, Wallet, TrendingUp, Users, Award, MessageSquare, Save, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ interface EditableFields {
 
 export default function UserDetails() {
   const { userId } = useParams<{ userId: string }>();
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const [isEditing, setIsEditing] = useState(false);
   const [editFields, setEditFields] = useState<EditableFields | null>(null);
   const [actionReason, setActionReason] = useState('');
@@ -150,7 +150,7 @@ export default function UserDetails() {
         reason: actionReason,
       });
       toast.success('User deleted successfully');
-      navigate('/admin/users');
+      setLocation('/admin/users');
     } catch (error: any) {
       toast.error(error.message || 'Failed to delete user');
     }
@@ -169,7 +169,7 @@ export default function UserDetails() {
       <div className="min-h-screen bg-gradient-to-b from-[#0A0E27] via-[#1a1f3a] to-[#0A0E27] flex items-center justify-center">
         <div className="text-center">
           <p className="text-white text-xl mb-4">User not found</p>
-          <Button onClick={() => navigate('/admin/users')}>
+          <Button onClick={() => setLocation('/admin/users')}>
             Back to Users
           </Button>
         </div>
@@ -197,7 +197,7 @@ export default function UserDetails() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button
-              onClick={() => navigate('/admin/users')}
+              onClick={() => setLocation('/admin/users')}
               variant="ghost"
               size="sm"
               className="text-gray-400 hover:text-white"

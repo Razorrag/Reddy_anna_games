@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -21,7 +21,7 @@ import { useAdminDashboard } from '@/hooks/queries/admin/useAdminDashboard';
 import { format } from 'date-fns';
 
 export default function AdminDashboard() {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { data: dashboard, isLoading } = useAdminDashboard();
 
   if (isLoading) {
@@ -169,7 +169,7 @@ export default function AdminDashboard() {
                 </h3>
                 <Button
                   variant="ghost"
-                  onClick={() => navigate('/admin/payments')}
+                  onClick={() => setLocation('/admin/payments')}
                   className="text-[#FFD700] hover:text-[#FFD700]"
                 >
                   View All →
@@ -292,7 +292,7 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <Button
                 variant="outline"
-                onClick={() => navigate('/admin/users')}
+                onClick={() => setLocation('/admin/users')}
                 className="flex-col h-auto py-4 border-[#FFD700]/30 hover:border-[#FFD700]"
               >
                 <Users className="w-6 h-6 text-[#FFD700] mb-2" />
@@ -300,7 +300,7 @@ export default function AdminDashboard() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => navigate('/admin/deposits')}
+                onClick={() => setLocation('/admin/deposits')}
                 className="flex-col h-auto py-4 border-[#FFD700]/30 hover:border-[#FFD700]"
               >
                 <TrendingDown className="w-6 h-6 text-green-500 mb-2" />
@@ -308,7 +308,7 @@ export default function AdminDashboard() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => navigate('/admin/withdrawals')}
+                onClick={() => setLocation('/admin/withdrawals')}
                 className="flex-col h-auto py-4 border-[#FFD700]/30 hover:border-[#FFD700]"
               >
                 <TrendingUp className="w-6 h-6 text-red-500 mb-2" />
@@ -316,7 +316,7 @@ export default function AdminDashboard() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => navigate('/admin/games')}
+                onClick={() => setLocation('/admin/games')}
                 className="flex-col h-auto py-4 border-[#FFD700]/30 hover:border-[#FFD700]"
               >
                 <GamepadIcon className="w-6 h-6 text-[#00F5FF] mb-2" />
@@ -324,7 +324,7 @@ export default function AdminDashboard() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => navigate('/admin/partners')}
+                onClick={() => setLocation('/admin/partners')}
                 className="flex-col h-auto py-4 border-[#FFD700]/30 hover:border-[#FFD700]"
               >
                 <UserCheck className="w-6 h-6 text-[#FFD700] mb-2" />
@@ -332,7 +332,7 @@ export default function AdminDashboard() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => navigate('/admin/analytics')}
+                onClick={() => setLocation('/admin/analytics')}
                 className="flex-col h-auto py-4 border-[#FFD700]/30 hover:border-[#FFD700]"
               >
                 <Activity className="w-6 h-6 text-[#FFD700] mb-2" />

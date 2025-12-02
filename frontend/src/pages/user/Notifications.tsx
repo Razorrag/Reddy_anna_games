@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import {
   Bell,
@@ -27,7 +27,7 @@ import { format } from 'date-fns';
 type NotificationFilter = 'all' | 'unread' | 'game' | 'payment' | 'bonus' | 'system';
 
 export default function Notifications() {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { user } = useAuthStore();
   const [filter, setFilter] = useState<NotificationFilter>('all');
 
@@ -113,7 +113,7 @@ export default function Notifications() {
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
-                onClick={() => navigate('/game')}
+                onClick={() => setLocation('/game')}
                 className="text-white hover:text-[#FFD700]"
               >
                 ← Back

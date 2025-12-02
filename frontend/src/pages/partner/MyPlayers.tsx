@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useMyPlayersQuery } from '@/hooks/queries/useMyPlayersQuery';
-import { Link } from 'react-router-dom';
+import { Link } from 'wouter';
 
 type FilterType = 'all' | 'active' | 'inactive' | 'verified' | 'unverified';
 type SortType = 'recent' | 'wagered' | 'earnings' | 'games';
@@ -234,7 +234,7 @@ export default function MyPlayers() {
                       className="text-cyan-400 hover:text-cyan-300"
                       asChild
                     >
-                      <Link to={`/partner/players/${player.id}`}>
+                      <Link href={`/partner/players/${player.id}`}>
                         <Eye className="w-4 h-4 mr-1" />
                         View
                       </Link>

@@ -18,7 +18,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { usePartnerDashboardQuery } from '@/hooks/queries/usePartnerDashboardQuery';
-import { Link } from 'react-router-dom';
+import { Link } from 'wouter';
 
 interface StatCardProps {
   title: string;
@@ -113,7 +113,7 @@ export default function PartnerDashboard() {
             className="border-cyan-500/30 hover:border-cyan-500"
             asChild
           >
-            <Link to="/partner/earnings">
+            <Link href="/partner/earnings">
               <Eye className="w-4 h-4 mr-2" />
               View Earnings
             </Link>
@@ -123,7 +123,7 @@ export default function PartnerDashboard() {
             className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700"
             asChild
           >
-            <Link to="/partner/payout-requests">
+            <Link href="/partner/payout-requests">
               <Download className="w-4 h-4 mr-2" />
               Request Payout
             </Link>
@@ -191,7 +191,7 @@ export default function PartnerDashboard() {
               Recent Referrals
             </h3>
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/partner/players" className="text-cyan-400 hover:text-cyan-300">
+              <Link href="/partner/players" className="text-cyan-400 hover:text-cyan-300">
                 View All
               </Link>
             </Button>
@@ -241,7 +241,7 @@ export default function PartnerDashboard() {
               Earnings Overview
             </h3>
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/partner/earnings" className="text-cyan-400 hover:text-cyan-300">
+              <Link href="/partner/earnings" className="text-cyan-400 hover:text-cyan-300">
                 View Details
               </Link>
             </Button>
@@ -279,7 +279,7 @@ export default function PartnerDashboard() {
                 size="sm"
                 asChild
               >
-                <Link to="/partner/payout-requests">
+                <Link href="/partner/payout-requests">
                   <Download className="w-4 h-4 mr-2" />
                   Request Withdrawal
                 </Link>

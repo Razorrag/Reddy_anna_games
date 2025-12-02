@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import {
   HelpCircle,
@@ -59,7 +59,7 @@ const FAQ_ITEMS = [
 ];
 
 export default function Support() {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { user } = useAuthStore();
   const submitTicket = useSubmitSupportTicket();
 
@@ -113,7 +113,7 @@ export default function Support() {
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
-              onClick={() => navigate('/game')}
+              onClick={() => setLocation('/game')}
               className="text-white hover:text-[#FFD700]"
             >
               ← Back
@@ -304,21 +304,21 @@ export default function Support() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Button
                 variant="outline"
-                onClick={() => navigate('/user/transactions')}
+                onClick={() => setLocation('/user/transactions')}
                 className="justify-start border-[#FFD700]/30 hover:border-[#FFD700]"
               >
                 View Transaction History
               </Button>
               <Button
                 variant="outline"
-                onClick={() => navigate('/user/verification')}
+                onClick={() => setLocation('/user/verification')}
                 className="justify-start border-[#FFD700]/30 hover:border-[#FFD700]"
               >
                 Account Verification
               </Button>
               <Button
                 variant="outline"
-                onClick={() => navigate('/user/settings')}
+                onClick={() => setLocation('/user/settings')}
                 className="justify-start border-[#FFD700]/30 hover:border-[#FFD700]"
               >
                 Account Settings

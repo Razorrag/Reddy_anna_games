@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import {
   Shield,
@@ -31,7 +31,7 @@ interface DocumentStatus {
 }
 
 export default function Verification() {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { user } = useAuthStore();
   const { data: verification, isLoading } = useUserVerification(user?.id || '');
   const uploadDocument = useUploadVerificationDocument();
@@ -162,7 +162,7 @@ export default function Verification() {
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
-              onClick={() => navigate('/user/profile')}
+              onClick={() => setLocation('/user/profile')}
               className="text-white hover:text-[#FFD700]"
             >
               ← Back

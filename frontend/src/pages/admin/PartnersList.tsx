@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { usePartnersQuery } from '@/hooks/queries/usePartnersQuery';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -19,7 +19,7 @@ interface PartnerFilters {
 }
 
 export default function PartnersList() {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const [filters, setFilters] = useState<PartnerFilters>({
     search: '',
     status: 'all',
@@ -104,7 +104,7 @@ export default function PartnersList() {
               Export
             </Button>
             <Button
-              onClick={() => navigate('/admin/partners/create')}
+              onClick={() => setLocation('/admin/partners/create')}
               className="bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-[#0A0E27]"
             >
               <UserPlus className="w-4 h-4 mr-2" />

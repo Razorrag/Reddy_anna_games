@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import {
   Users,
@@ -27,7 +27,7 @@ const REFERRAL_BONUS = 100; // ₹100 per referral
 const BASE_URL = window.location.origin;
 
 export default function Referrals() {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { user } = useAuthStore();
   const { data: referralData, isLoading } = useUserReferrals(user?.id || '');
 
@@ -98,7 +98,7 @@ export default function Referrals() {
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
-              onClick={() => navigate('/game')}
+              onClick={() => setLocation('/game')}
               className="text-white hover:text-[#FFD700]"
             >
               ← Back

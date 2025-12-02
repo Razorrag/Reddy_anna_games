@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { ArrowLeft, Edit, Ban, CheckCircle, XCircle, DollarSign, Users, TrendingUp, Calendar, Phone, Mail, Save, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ interface EditableFields {
 
 export default function PartnerDetails() {
   const { partnerId } = useParams<{ partnerId: string }>();
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const [isEditing, setIsEditing] = useState(false);
   const [editFields, setEditFields] = useState<EditableFields | null>(null);
   const [showPayoutDialog, setShowPayoutDialog] = useState(false);
@@ -142,7 +142,7 @@ export default function PartnerDetails() {
       <div className="min-h-screen bg-gradient-to-b from-[#0A0E27] via-[#1a1f3a] to-[#0A0E27] flex items-center justify-center">
         <div className="text-center">
           <p className="text-white text-xl mb-4">Partner not found</p>
-          <Button onClick={() => navigate('/admin/partners')}>
+          <Button onClick={() => setLocation('/admin/partners')}>
             Back to Partners
           </Button>
         </div>
@@ -170,7 +170,7 @@ export default function PartnerDetails() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button
-              onClick={() => navigate('/admin/partners')}
+              onClick={() => setLocation('/admin/partners')}
               variant="ghost"
               size="sm"
               className="text-gray-400 hover:text-white"

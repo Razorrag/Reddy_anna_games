@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { api } from '../../../lib/api';
 import { useAuthStore } from '../../../store/authStore';
 import { toast } from 'sonner';
@@ -23,7 +23,7 @@ interface PartnerLoginResponse {
  * Partner login mutation hook
  */
 export const usePartnerLogin = () => {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const setAuth = useAuthStore((state) => state.setAuth);
 
   return useMutation({
@@ -39,7 +39,7 @@ export const usePartnerLogin = () => {
       setAuth(data.user, data.token);
       
       // Navigate to partner dashboard
-      navigate('/partner/dashboard');
+      setLocation('/partner/dashboard');
       
       toast.success('Welcome back!');
     },

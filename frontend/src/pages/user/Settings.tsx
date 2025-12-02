@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import {
   Settings as SettingsIcon,
@@ -25,7 +25,7 @@ import { useUpdateNotificationSettings } from '@/hooks/mutations/user/useUpdateN
 import { toast } from 'sonner';
 
 export default function Settings() {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { user } = useAuthStore();
   const changePassword = useChangePassword();
   const updateNotifications = useUpdateNotificationSettings();
@@ -105,7 +105,7 @@ export default function Settings() {
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
-              onClick={() => navigate('/user/profile')}
+              onClick={() => setLocation('/user/profile')}
               className="text-white hover:text-[#FFD700]"
             >
               ← Back

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import {
   History,
@@ -27,7 +27,7 @@ type OutcomeFilter = 'all' | 'win' | 'loss' | 'refund';
 type DateFilter = 'all' | 'today' | 'week' | 'month';
 
 export default function GameHistory() {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { user } = useAuthStore();
   const [outcomeFilter, setOutcomeFilter] = useState<OutcomeFilter>('all');
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
@@ -119,7 +119,7 @@ export default function GameHistory() {
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
-                onClick={() => navigate('/game')}
+                onClick={() => setLocation('/game')}
                 className="text-white hover:text-[#FFD700]"
               >
                 ← Back
@@ -294,7 +294,7 @@ export default function GameHistory() {
                     ? 'Try adjusting your filters'
                     : 'Start playing to see your game history'}
                 </p>
-                <Button variant="gold" onClick={() => navigate('/game')} className="gap-2">
+                <Button variant="gold" onClick={() => setLocation('/game')} className="gap-2">
                   <Target className="w-4 h-4" />
                   Play Now
                 </Button>

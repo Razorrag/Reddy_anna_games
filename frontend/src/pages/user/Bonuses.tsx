@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import {
   Gift,
@@ -23,7 +23,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 
 export default function Bonuses() {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { user } = useAuthStore();
   const { data: bonuses, isLoading } = useUserBonuses(user?.id || '');
   const unlockBonus = useUnlockBonus();
@@ -114,7 +114,7 @@ export default function Bonuses() {
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
-              onClick={() => navigate('/user/wallet')}
+              onClick={() => setLocation('/user/wallet')}
               className="text-white hover:text-[#FFD700]"
             >
               ← Back
@@ -326,14 +326,14 @@ export default function Bonuses() {
                 <div className="flex gap-4 justify-center">
                   <Button
                     variant="gold"
-                    onClick={() => navigate('/game')}
+                    onClick={() => setLocation('/game')}
                     className="gap-2"
                   >
                     Start Playing
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => navigate('/user/referrals')}
+                    onClick={() => setLocation('/user/referrals')}
                     className="gap-2 border-[#FFD700]/30"
                   >
                     Refer Friends

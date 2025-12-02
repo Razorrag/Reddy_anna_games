@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import {
   ArrowUpRight,
@@ -24,7 +24,7 @@ type TransactionType = 'all' | 'deposit' | 'withdrawal' | 'bet' | 'win' | 'bonus
 type TransactionStatus = 'all' | 'pending' | 'completed' | 'failed' | 'rejected';
 
 export default function Transactions() {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { user } = useAuthStore();
   const [typeFilter, setTypeFilter] = useState<TransactionType>('all');
   const [statusFilter, setStatusFilter] = useState<TransactionStatus>('all');
@@ -130,7 +130,7 @@ export default function Transactions() {
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
-                onClick={() => navigate('/user/wallet')}
+                onClick={() => setLocation('/user/wallet')}
                 className="text-white hover:text-[#FFD700]"
               >
                 ← Back
