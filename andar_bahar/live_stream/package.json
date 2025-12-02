@@ -1,0 +1,19 @@
+{
+  "name": "live-streaming-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0",
+    "hls.js": "^1.6.14",
+    "node-media-server": "^2.7.4",
+    "os": "^0.1.2",
+    "path": "^0.12.7"
+  }
+}

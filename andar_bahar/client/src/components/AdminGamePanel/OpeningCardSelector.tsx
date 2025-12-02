@@ -1,0 +1,287 @@
+import React, { useState, useEffect } from 'react';
+import { useGameState } from '../../contexts/GameStateContext';
+import { useWebSocket } from '../../contexts/WebSocketContext';
+import { useNotification } from '../../contexts/NotificationContext';
+import type { Card } from '@/types/game';
+
+const OpeningCardSelector: React.FC = () => {
+  const { gameState, setSelectedOpeningCard, setPhase, setCurrentRound, setCountdown } = useGameState();
+  const { startGame } = useWebSocket();
+  const { showNotification } = useNotification();
+  
+  const [selectedCard, setSelectedCard] = useState<Card | null>(gameState.selectedOpeningCard);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [timerDuration, setTimerDuration] = useState<number | undefined>(undefined); // undefined = use backend setting
+  const [isStarting, setIsStarting] = useState(false);
+
+  // Sync local state with game state (important for reset functionality and initial load)
+  useEffect(() => {
+    if (gameState.selectedOpeningCard === null && selectedCard !== null) {
+      // Game was reset, clear local selection
+      setSelectedCard(null);
+      setShowConfirmModal(false);
+    } else if (gameState.selectedOpeningCard !== null && selectedCard?.id !== gameState.selectedOpeningCard.id) {
+      // Opening card was set in game state (e.g., from server sync), update local state
+      setSelectedCard(gameState.selectedOpeningCard);
+    }
+  }, [gameState.selectedOpeningCard, selectedCard]);
+
+  // Generate all 52 cards
+  const suits = [
+    { symbol: '♠', name: 'spades', color: 'black' },
+    { symbol: '♥', name: 'hearts', color: 'red' },
+    { symbol: '♦', name: 'diamonds', color: 'red' },
+    { symbol: '♣', name: 'clubs', color: 'black' }
+  ];
+  
+  const ranks = [
+    { display: 'A', value: 1 },
+    { display: '2', value: 2 },
+    { display: '3', value: 3 },
+    { display: '4', value: 4 },
+    { display: '5', value: 5 },
+    { display: '6', value: 6 },
+    { display: '7', value: 7 },
+    { display: '8', value: 8 },
+    { display: '9', value: 9 },
+    { display: '10', value: 10 },
+    { display: 'J', value: 11 },
+    { display: 'Q', value: 12 },
+    { display: 'K', value: 13 }
+  ];
+
+  const allCards: Card[] = suits.flatMap(suit =>
+    ranks.map(rank => ({
+      id: `${rank.display}-${suit.name}`,
+      suit: suit.name as 'spades' | 'hearts' | 'diamonds' | 'clubs',
+      rank: rank.display,
+      value: rank.value,
+      color: suit.color as 'red' | 'black',
+      display: `${rank.display}${suit.symbol}`
+    }))
+  );
+
+  const handleCardSelect = (card: Card) => {
+    if (selectedCard) return; // Prevent selecting again once chosen
+    setSelectedCard(card);
+    setSelectedOpeningCard(card);
+    showNotification(`Selected: ${card.display}`, 'info');
+  };
+
+  const handleStartGame = async () => {
+    if (!selectedCard || isStarting) return;
+    setIsStarting(true);
+    try {
+      // Pass timer only if custom value is set, otherwise backend setting is used
+      await startGame(timerDuration);
+      setShowConfirmModal(false);
+    } finally {
+      setTimeout(() => setIsStarting(false), 1500);
+    }
+  };
+
+  return (
+    <div className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-sm rounded-lg p-5 border-2 border-gold/30">
+      <h2 className="text-xl font-bold text-gold mb-3">
+        🎴 Select Opening Card
+      </h2>
+      
+      {/* Card Grid */}
+      <div className="bg-black/30 rounded-lg p-3">
+        {/* Cards organized by suit - 13 cards per row */}
+        {suits.map(suit => (
+          <div key={suit.name} className="mb-2 last:mb-0">
+            <div className="text-sm font-semibold mb-1 flex items-center gap-2">
+              <span className={`text-lg ${suit.color === 'red' ? 'text-red-500' : 'text-yellow-400'}`}>
+                {suit.symbol}
+              </span>
+              <span className="text-gray-400 uppercase text-xs">{suit.name}</span>
+            </div>
+            
+            <div className="flex flex-wrap gap-1">
+              {allCards
+                .filter(card => card.suit === suit.name)
+                .map(card => {
+                  const isCurrentlySelected = selectedCard?.id === card.id;
+                  const isUsed = gameState.usedCards.some(usedCard => usedCard.id === card.id);
+                  const isDisabled = isUsed || (!!selectedCard && !isCurrentlySelected);
+                  
+                  return (
+                    <button
+                      key={card.id}
+                      onClick={() => !isDisabled && handleCardSelect(card)}
+                      disabled={isDisabled}
+                      className={`
+                        w-[calc(100%/13-0.25rem)] min-w-[64px] h-[88px] rounded text-3xl font-bold transition-all duration-300 flex items-center justify-center
+                        ${isCurrentlySelected
+                          ? 'bg-gradient-to-br from-gold to-yellow-500 text-black border-2 border-white scale-105 relative z-10 shadow-lg shadow-gold/50 animate-pulse-subtle'
+                          : isUsed
+                          ? 'bg-gray-800/50 border-2 border-gray-600 opacity-40 cursor-not-allowed line-through'
+                          : (!!selectedCard && !isCurrentlySelected)
+                          ? 'bg-gray-800/50 border-2 border-gray-600 opacity-40 cursor-not-allowed'
+                          : 'bg-black hover:bg-gray-900 border-2 border-gold/50 hover:border-gold hover:scale-105'
+                        }
+                        ${isCurrentlySelected 
+                          ? '' 
+                          : isUsed
+                          ? 'text-gray-600'
+                          : (!!selectedCard && !isCurrentlySelected)
+                          ? 'text-gray-600'
+                          : (card.color === 'red' ? 'text-red-400' : 'text-yellow-400')
+                        }
+                      `}
+                      title={isUsed ? '❌ Card already used in this game' : `${card.rank} of ${card.suit}`}
+                    >
+                      {isUsed ? (
+                        <span className="relative">
+                          {card.display}
+                          <span className="absolute inset-0 flex items-center justify-center text-red-500 text-xs">✗</span>
+                        </span>
+                      ) : (
+                        card.display
+                      )}
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      {/* Action Buttons */}
+      <div className="mt-3 flex gap-3">
+        <button
+          onClick={() => setSelectedCard(null)}
+          disabled={!selectedCard}
+          className="flex-1 px-5 py-3 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all"
+        >
+          🗑️ Clear Selection
+        </button>
+        <button
+          onClick={() => setShowConfirmModal(true)}
+          disabled={!selectedCard}
+          className="flex-[2] px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-700 disabled:to-gray-800 disabled:opacity-50 text-white rounded-lg text-lg font-bold transition-all"
+        >
+          ✅ Start Round 1
+        </button>
+      </div>
+      
+      {/* Selected Card Display - Below Buttons */}
+      {selectedCard && (
+        <div className="mt-3 bg-gradient-to-r from-gold/20 to-yellow-600/20 rounded-lg p-4 border-2 border-gold text-center shadow-xl">
+          <div className="text-sm text-gray-400 mb-2">🎴 Selected Opening Card</div>
+          <div className={`text-7xl font-bold ${selectedCard.color === 'red' ? 'text-red-500' : 'text-white'}`}>
+            {selectedCard.display}
+          </div>
+        </div>
+      )}
+      
+      {/* Confirmation Modal */}
+      {showConfirmModal && selectedCard && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 max-w-md w-full border-2 border-gold shadow-2xl">
+            <h3 className="text-2xl font-bold text-gold mb-6 text-center">
+              🎲 Start Game Confirmation
+            </h3>
+            
+            <div className="bg-black/40 rounded-xl p-6 mb-6 text-center">
+              <div className="text-gray-400 text-sm mb-2">Opening Card</div>
+              <div className={`text-6xl font-bold mb-2 ${selectedCard.color === 'red' ? 'text-red-500' : 'text-white'}`}>
+                {selectedCard.display}
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <label className="block text-gray-400 text-sm mb-2">
+                Round 1 Betting Timer (seconds)
+              </label>
+              <input
+                type="number"
+                value={timerDuration ?? ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setTimerDuration(val === '' ? undefined : Math.max(10, Math.min(300, parseInt(val) || 30)));
+                }}
+                placeholder="Use backend setting"
+                min="10"
+                max="300"
+                className="w-full px-4 py-3 bg-black/40 border border-gold/30 rounded-lg text-white text-center text-xl font-bold focus:outline-none focus:border-gold placeholder:text-gray-600"
+              />
+              <div className="text-gray-500 text-xs mt-1 text-center">
+                Leave empty to use Backend Settings (default). Range: 10-300 seconds.
+              </div>
+            </div>
+            
+            <div className="bg-blue-500/10 border border-blue-400/30 rounded-lg p-3 mb-4">
+              <div className="flex items-center gap-2 text-blue-400 text-xs">
+                <span className="text-sm">ℹ️</span>
+                <div>
+                  <span className="font-semibold">Tip:</span> You can set timer here OR configure default in Backend Settings page.
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="flex-1 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleStartGame}
+                disabled={isStarting}
+                className="flex-[2] px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-bold transition-all shadow-xl"
+              >
+                {isStarting ? 'Starting…' : '🚀 Start Game!'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.3);
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 215, 0, 0.5);
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 215, 0, 0.7);
+        }
+        
+        @keyframes pulse-subtle {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.85; }
+        }
+        
+        .animate-pulse-subtle {
+          animation: pulse-subtle 2s ease-in-out infinite;
+        }
+        
+        .line-through {
+          position: relative;
+        }
+        
+        .line-through::after {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 10%;
+          right: 10%;
+          height: 2px;
+          background: rgba(239, 68, 68, 0.6);
+          transform: translateY(-50%) rotate(-15deg);
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default OpeningCardSelector;

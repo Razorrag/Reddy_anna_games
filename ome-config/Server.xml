@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Server version="8">
+    <Name>OvenMediaEngine</Name>
+    <Type>origin</Type>
+    <IP>*</IP>
+    <PrivacyProtection>false</PrivacyProtection>
+    
+    <Bind>
+        <Managers>
+            <API>
+                <Port>8081</Port>
+                <WorkerCount>1</WorkerCount>
+            </API>
+        </Managers>
+        
+        <Providers>
+            <RTMP>
+                <Port>1935</Port>
+                <WorkerCount>1</WorkerCount>
+            </RTMP>
+        </Providers>
+        
+        <Publishers>
+            <OVT>
+                <Port>9000</Port>
+                <WorkerCount>1</WorkerCount>
+            </OVT>
+            <LLHLS>
+                <Port>8080</Port>
+                <WorkerCount>1</WorkerCount>
+            </LLHLS>
+            <WebRTC>
+                <Signalling>
+                    <Port>3333</Port>
+                    <WorkerCount>1</WorkerCount>
+                </Signalling>
+                <IceCandidates>
+                    <IceCandidate>*:10000-10005/udp</IceCandidate>
+                    <TcpRelay>*:3478</TcpRelay>
+                </IceCandidates>
+            </WebRTC>
+        </Publishers>
+    </Bind>
+    
+    <VirtualHosts>
+        <VirtualHost>
+            <Name>default</Name>
+            <Host>
+                <Names>
+                    <Name>*</Name>
+                </Names>
+            </Host>
+            
+            <Origins>
+            </Origins>
+            
+            <Applications>
+                <Application>
+                    <Name>live</Name>
+                    <Type>live</Type>
+                    <OutputProfiles>
+                        <OutputProfile>
+                            <Name>bypass</Name>
+                            <OutputStreamName>${OriginStreamName}</OutputStreamName>
+                            <Encodes>
+                                <Audio>
+                                    <Bypass>true</Bypass>
+                                </Audio>
+                                <Video>
+                                    <Bypass>true</Bypass>
+                                </Video>
+                            </Encodes>
+                        </OutputProfile>
+                    </OutputProfiles>
+                    
+                    <Providers>
+                        <RTMP>
+                            <BlockDuplicateStreamName>true</BlockDuplicateStreamName>
+                        </RTMP>
+                    </Providers>
+                    
+                    <Publishers>
+                        <SessionLoadBalancingThreadCount>8</SessionLoadBalancingThreadCount>
+                        <OVT>
+                        </OVT>
+                        <LLHLS>
+                            <ChunkDuration>0.2</ChunkDuration>
+                            <SegmentDuration>6</SegmentDuration>
+                            <SegmentCount>10</SegmentCount>
+                            <CrossDomains>
+                                <Url>*</Url>
+                            </CrossDomains>
+                        </LLHLS>
+                        <WebRTC>
+                            <Timeout>30000</Timeout>
+                            <Rtx>false</Rtx>
+                            <Ulpfec>false</Ulpfec>
+                            <JitterBuffer>false</JitterBuffer>
+                        </WebRTC>
+                    </Publishers>
+                </Application>
+            </Applications>
+        </VirtualHost>
+    </VirtualHosts>
+</Server>

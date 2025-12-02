@@ -1,0 +1,458 @@
+/* Mobile Responsive Utilities and Overrides */
+
+/* ============================================
+   BASE MOBILE STYLES
+   ============================================ */
+
+/* Safe area handling for notched devices */
+:root {
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+}
+
+/* Prevent text size adjustment on orientation change */
+html {
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+
+/* Touch-friendly scrolling */
+* {
+  -webkit-overflow-scrolling: touch;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent pull-to-refresh on mobile */
+body {
+  overscroll-behavior-y: none;
+}
+
+/* ============================================
+   TOUCH TARGETS
+   ============================================ */
+
+/* Minimum touch target size: 44x44px (iOS) / 48x48px (Android) */
+.touch-target {
+  min-width: 48px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Touch feedback */
+.touch-feedback {
+  transition: transform 0.1s, opacity 0.1s;
+}
+
+.touch-feedback:active {
+  transform: scale(0.95);
+  opacity: 0.8;
+}
+
+/* ============================================
+   MOBILE NAVIGATION
+   ============================================ */
+
+/* Bottom navigation safe area */
+.mobile-bottom-nav {
+  padding-bottom: calc(1rem + var(--safe-area-inset-bottom));
+}
+
+/* Sticky header safe area */
+.mobile-header {
+  padding-top: var(--safe-area-inset-top);
+}
+
+/* ============================================
+   MOBILE FORMS
+   ============================================ */
+
+/* Larger input fields for mobile */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+    padding: 0.75rem;
+  }
+  
+  button {
+    padding: 0.875rem 1.25rem;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+}
+
+/* ============================================
+   MOBILE TYPOGRAPHY
+   ============================================ */
+
+@media (max-width: 768px) {
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.25rem; }
+  h4 { font-size: 1.125rem; }
+  h5 { font-size: 1rem; }
+  h6 { font-size: 0.875rem; }
+}
+
+/* ============================================
+   MOBILE CARDS & CONTAINERS
+   ============================================ */
+
+@media (max-width: 768px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .card {
+    border-radius: 0.75rem;
+  }
+  
+  /* Reduce spacing on mobile */
+  .space-y-6 { gap: 1rem; }
+  .space-y-4 { gap: 0.75rem; }
+}
+
+/* ============================================
+   MOBILE TABLES
+   ============================================ */
+
+/* Scrollable tables */
+.mobile-table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Stacked table layout */
+@media (max-width: 768px) {
+  .mobile-stack-table {
+    display: block;
+  }
+  
+  .mobile-stack-table thead {
+    display: none;
+  }
+  
+  .mobile-stack-table tbody,
+  .mobile-stack-table tr,
+  .mobile-stack-table td {
+    display: block;
+    width: 100%;
+  }
+  
+  .mobile-stack-table tr {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: rgba(26, 31, 58, 0.5);
+    border-radius: 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .mobile-stack-table td {
+    padding: 0.5rem 0;
+    border: none;
+  }
+  
+  .mobile-stack-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    display: block;
+    margin-bottom: 0.25rem;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.875rem;
+  }
+}
+
+/* ============================================
+   MOBILE MODALS & DIALOGS
+   ============================================ */
+
+@media (max-width: 768px) {
+  .mobile-full-modal {
+    width: 100vw;
+    height: 100vh;
+    max-width: 100vw;
+    max-height: 100vh;
+    margin: 0;
+    border-radius: 0;
+  }
+  
+  .mobile-bottom-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-radius: 1rem 1rem 0 0;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+}
+
+/* ============================================
+   MOBILE GAME INTERFACE
+   ============================================ */
+
+/* Video player mobile optimizations */
+@media (max-width: 768px) {
+  .mobile-video-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+  }
+  
+  .mobile-video-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 1rem;
+    background: linear-gradient(
+      to top,
+      rgba(0, 0, 0, 0.8),
+      transparent
+    );
+  }
+}
+
+/* Betting interface mobile */
+@media (max-width: 768px) {
+  .mobile-betting-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(10, 14, 39, 0.98);
+    border-top: 2px solid #FFD700;
+    padding: 1rem;
+    padding-bottom: calc(1rem + var(--safe-area-inset-bottom));
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+  }
+  
+  .mobile-bet-button {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.125rem;
+    font-weight: 700;
+  }
+  
+  .mobile-chip-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+  }
+  
+  .mobile-chip {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.125rem;
+    font-weight: 700;
+    border-radius: 50%;
+  }
+}
+
+/* Card display mobile */
+@media (max-width: 768px) {
+  .mobile-card {
+    width: 60px;
+    height: 84px;
+  }
+  
+  .mobile-card-small {
+    width: 45px;
+    height: 63px;
+  }
+}
+
+/* ============================================
+   MOBILE DASHBOARDS
+   ============================================ */
+
+/* Stats grid mobile */
+@media (max-width: 768px) {
+  .mobile-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  .mobile-stat-card {
+    padding: 1rem;
+  }
+}
+
+/* Chart mobile optimization */
+@media (max-width: 768px) {
+  .mobile-chart-container {
+    height: 200px;
+    overflow-x: auto;
+  }
+}
+
+/* ============================================
+   MOBILE SIDEBAR
+   ============================================ */
+
+/* Slide-in sidebar */
+@media (max-width: 768px) {
+  .mobile-sidebar {
+    position: fixed;
+    top: 0;
+    left: -100%;
+    height: 100vh;
+    width: 280px;
+    transition: left 0.3s ease;
+    z-index: 50;
+  }
+  
+  .mobile-sidebar.open {
+    left: 0;
+  }
+  
+  .mobile-sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 40;
+  }
+  
+  .mobile-sidebar-overlay.show {
+    opacity: 1;
+    pointer-events: all;
+  }
+}
+
+/* ============================================
+   MOBILE UTILITIES
+   ============================================ */
+
+/* Hide on mobile */
+@media (max-width: 768px) {
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+/* Show only on mobile */
+.show-mobile {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .show-mobile {
+    display: block !important;
+  }
+}
+
+/* Full width on mobile */
+@media (max-width: 768px) {
+  .mobile-full {
+    width: 100% !important;
+  }
+}
+
+/* Reduced padding on mobile */
+@media (max-width: 768px) {
+  .mobile-p-reduced {
+    padding: 1rem !important;
+  }
+}
+
+/* ============================================
+   LANDSCAPE MOBILE
+   ============================================ */
+
+@media (max-width: 768px) and (orientation: landscape) {
+  .landscape-hide {
+    display: none !important;
+  }
+  
+  .landscape-video-full {
+    height: 100vh;
+    width: 100vw;
+  }
+}
+
+/* ============================================
+   PWA OPTIMIZATIONS
+   ============================================ */
+
+/* Display mode optimizations */
+@media (display-mode: standalone) {
+  body {
+    user-select: none;
+  }
+  
+  /* Prevent overscroll in PWA */
+  html, body {
+    overscroll-behavior: none;
+  }
+}
+
+/* ============================================
+   PERFORMANCE OPTIMIZATIONS
+   ============================================ */
+
+/* Reduce animations on low-end devices */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* GPU acceleration for smooth scrolling */
+.mobile-smooth-scroll {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* ============================================
+   MOBILE LOADING STATES
+   ============================================ */
+
+@media (max-width: 768px) {
+  .mobile-skeleton {
+    height: 60px;
+    background: linear-gradient(
+      90deg,
+      rgba(26, 31, 58, 0.5) 25%,
+      rgba(26, 31, 58, 0.7) 50%,
+      rgba(26, 31, 58, 0.5) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+  
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+}
+
+/* ============================================
+   MOBILE EMPTY STATES
+   ============================================ */
+
+@media (max-width: 768px) {
+  .mobile-empty-state {
+    padding: 3rem 1rem;
+    text-align: center;
+  }
+  
+  .mobile-empty-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1rem;
+  }
+}

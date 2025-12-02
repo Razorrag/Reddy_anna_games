@@ -1,0 +1,789 @@
+// User Management System
+import { storage } from './storage-supabase';
+import { validateMobileNumber, normalizePhone, validateEmail, sanitizeInput } from './validation';
+import bcrypt from 'bcryptjs';
+
+export interface UserProfileUpdate {
+  name?: string;
+  email?: string;
+  mobile?: string;
+  profile?: {
+    address?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+    country?: string;
+    dateOfBirth?: Date;
+    gender?: string;
+    profilePicture?: string;
+  };
+}
+
+export interface UserManagementResponse {
+  success: boolean;
+  user?: any;
+  users?: any[];
+  data?: any; // ✅ FIX: Add data field for consistent API responses
+  total?: number;
+  error?: string;
+  message?: string;
+  previousBalance?: number;
+  newBalance?: number;
+}
+
+export interface UserFilters {
+  status?: 'active' | 'suspended' | 'banned';
+  search?: string;
+  joinDateFrom?: Date;
+  joinDateTo?: Date;
+  balanceMin?: number;
+  balanceMax?: number;
+  referredBy?: string;
+  limit?: number;
+  offset?: number;
+  sortBy?: 'createdAt' | 'lastLogin' | 'balance' | 'name';
+  sortOrder?: 'asc' | 'desc';
+}
+
+export const updateUserProfile = async (userId: string, updates: UserProfileUpdate): Promise<UserManagementResponse> => {
+  try {
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return { success: false, error: 'User not found' };
+    }
+
+    // For Supabase, we can only update the username (which is email in our schema)
+    if (updates.email) {
+      const sanitizedEmail = sanitizeInput(updates.email).toLowerCase();
+      if (!validateEmail(sanitizedEmail)) {
+        return { success: false, error: 'Invalid email format' };
+      }
+      
+      // Check if email is already taken by another user
+      const existingUser = await storage.getUserByUsername(sanitizedEmail);
+      if (existingUser && existingUser.id !== userId) {
+        return { success: false, error: 'Email is already taken' };
+      }
+    }
+
+    // Since we're not storing profile details in our current Supabase schema,
+    // we'll only support updating the username for now
+    if (updates.email) {
+      // In the current Supabase schema, username is the same as email
+      // We don't have a separate username field with profile details
+      return { success: false, error: 'Profile updates not supported in current schema' };
+    }
+
+    // Return the user
+    const userResponse = {
+      id: user.id,
+      username: user.phone, // Use phone as username since that's our identifier
+      balance: user.balance,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at
+    };
+
+    return { success: true, user: userResponse };
+  } catch (error) {
+    console.error('Profile update error:', error);
+    return { success: false, error: 'Profile update failed' };
+  }
+};
+
+export const getUserDetails = async (userId: string): Promise<UserManagementResponse> => {
+  try {
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return { success: false, error: 'User not found' };
+    }
+
+    // ✅ PHASE 2 FIX: Include referral and bonus fields in profile response
+    const userResponse = {
+      id: user.id,
+      phone: user.phone,
+      username: user.phone, // Use phone as username since that's our identifier
+      fullName: user.full_name,
+      role: user.role,
+      status: user.status,
+      balance: parseFloat(user.balance as any),
+      totalWinnings: parseFloat(user.total_winnings as any || '0'),
+      totalLosses: parseFloat(user.total_losses as any || '0'),
+      gamesPlayed: user.games_played || 0,
+      gamesWon: user.games_won || 0,
+      phoneVerified: user.phone_verified,
+      lastLogin: user.last_login,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at,
+      // ✅ NEW: Add referral fields
+      referralCode: user.referral_code || null,
+      referralCodeGenerated: user.referral_code_generated || null,
+      // ✅ NEW: Add bonus fields
+      depositBonusAvailable: parseFloat(user.deposit_bonus_available as any || '0'),
+      referralBonusAvailable: parseFloat(user.referral_bonus_available as any || '0'),
+      totalBonusEarned: parseFloat(user.total_bonus_earned as any || '0')
+    };
+
+    return { success: true, user: userResponse };
+  } catch (error) {
+    console.error('User details error:', error);
+    return { success: false, error: 'User details retrieval failed' };
+  }
+};
+
+export const getUserGameHistory = async (userId: string, filters: {
+  fromDate?: Date;
+  toDate?: Date;
+  limit?: number;
+  offset?: number;
+  type?: 'andar' | 'bahar';
+  result?: 'win' | 'loss';
+} = {}): Promise<UserManagementResponse> => {
+  try {
+    // Use the storage method which already implements this functionality
+    const gameHistory = await storage.getUserGameHistory(userId);
+    
+    if (!gameHistory || gameHistory.length === 0) {
+      return {
+        success: true,
+        users: [],
+        total: 0,
+        data: []
+      };
+    }
+    
+    // Apply filters
+    let filteredHistory = gameHistory;
+    
+    // Filter by date range
+    if (filters.fromDate) {
+      filteredHistory = filteredHistory.filter((game: any) => {
+        const gameDate = new Date(game.createdAt || game.created_at);
+        return gameDate >= filters.fromDate!;
+      });
+    }
+    if (filters.toDate) {
+      filteredHistory = filteredHistory.filter((game: any) => {
+        const gameDate = new Date(game.createdAt || game.created_at);
+        return gameDate <= filters.toDate!;
+      });
+    }
+    
+    // Filter by type (andar/bahar winner)
+    if (filters.type) {
+      filteredHistory = filteredHistory.filter((game: any) => 
+        game.winner === filters.type
+      );
+    }
+    
+    // Filter by result (win/loss) - check if user's bet side matches winner
+    if (filters.result) {
+      filteredHistory = filteredHistory.filter((game: any) => {
+        // Check if user won or lost based on their bets
+        const userWon = game.userBets && game.userBets.some((bet: any) => {
+          return bet.side === game.winner;
+        });
+        return filters.result === 'win' ? userWon : !userWon;
+      });
+    }
+    
+    // Apply pagination
+    const limit = filters.limit || 20;
+    const offset = filters.offset || 0;
+    const paginatedHistory = filteredHistory.slice(offset, offset + limit);
+    
+    return {
+      success: true,
+      users: [], // Not applicable for this endpoint
+      total: filteredHistory.length,
+      data: paginatedHistory
+    };
+  } catch (error) {
+    console.error('getUserGameHistory error:', error);
+    return {
+      success: false,
+      users: [],
+      total: 0,
+      error: 'Failed to retrieve user game history'
+    };
+  }
+};
+
+export const getAllUsers = async (filters: UserFilters = {}): Promise<UserManagementResponse> => {
+  try {
+    // Get all users from storage
+    const allUsers = await storage.getAllUsers();
+    
+    // 🔍 DEBUG: Log what we got from database
+    console.log(`📊 getAllUsers - Fetched ${allUsers.length} users from database`);
+    if (allUsers.length > 0) {
+      console.log(`📊 Sample user data:`, {
+        id: allUsers[0].id,
+        total_winnings: allUsers[0].total_winnings,
+        total_losses: allUsers[0].total_losses,
+        games_played: allUsers[0].games_played,
+        games_won: allUsers[0].games_won
+      });
+    }
+    
+    if (!allUsers || allUsers.length === 0) {
+      return { success: true, users: [], total: 0 };
+    }
+
+    // Apply filters
+    let filteredUsers = [...allUsers];
+
+    // Status filter
+    if (filters.status) {
+      filteredUsers = filteredUsers.filter((u: any) => u.status === filters.status);
+    }
+
+    // Search filter (by phone or name)
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filteredUsers = filteredUsers.filter((u: any) => 
+        u.phone?.toLowerCase().includes(searchLower) ||
+        u.full_name?.toLowerCase().includes(searchLower) ||
+        u.id?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Balance filters
+    if (filters.balanceMin !== undefined) {
+      filteredUsers = filteredUsers.filter((u: any) => parseFloat(u.balance) >= filters.balanceMin!);
+    }
+    if (filters.balanceMax !== undefined) {
+      filteredUsers = filteredUsers.filter((u: any) => parseFloat(u.balance) <= filters.balanceMax!);
+    }
+
+    // Date filters
+    if (filters.joinDateFrom) {
+      filteredUsers = filteredUsers.filter((u: any) => u.created_at && new Date(u.created_at) >= filters.joinDateFrom!);
+    }
+    if (filters.joinDateTo) {
+      filteredUsers = filteredUsers.filter((u: any) => u.created_at && new Date(u.created_at) <= filters.joinDateTo!);
+    }
+
+    // Sorting
+    if (filters.sortBy) {
+      filteredUsers.sort((a: any, b: any) => {
+        let aVal: any, bVal: any;
+        
+        switch (filters.sortBy) {
+          case 'balance':
+            aVal = parseFloat(a.balance);
+            bVal = parseFloat(b.balance);
+            break;
+          case 'createdAt':
+            aVal = a.created_at ? new Date(a.created_at).getTime() : 0;
+            bVal = b.created_at ? new Date(b.created_at).getTime() : 0;
+            break;
+          case 'lastLogin':
+            aVal = a.last_login ? new Date(a.last_login).getTime() : 0;
+            bVal = b.last_login ? new Date(b.last_login).getTime() : 0;
+            break;
+          case 'name':
+            aVal = a.full_name || '';
+            bVal = b.full_name || '';
+            break;
+          default:
+            return 0;
+        }
+        
+        const order = filters.sortOrder === 'desc' ? -1 : 1;
+        return aVal > bVal ? order : aVal < bVal ? -order : 0;
+      });
+    }
+
+    // Pagination
+    const total = filteredUsers.length;
+    const offset = filters.offset || 0;
+    const limit = filters.limit || 50;
+    const paginatedUsers = filteredUsers.slice(offset, offset + limit);
+
+    // Format response
+    const formattedUsers = paginatedUsers.map((u: any) => ({
+      id: u.id,
+      phone: u.phone,
+      fullName: u.full_name,
+      role: u.role,
+      status: u.status,
+      balance: parseFloat(u.balance),
+      totalWinnings: parseFloat(u.total_winnings || '0'),
+      totalLosses: parseFloat(u.total_losses || '0'),
+      gamesPlayed: u.games_played || 0,
+      gamesWon: u.games_won || 0,
+      phoneVerified: u.phone_verified,
+      lastLogin: u.last_login,
+      createdAt: u.created_at,
+      updatedAt: u.updated_at
+    }));
+
+    // 🔍 DEBUG: Log formatted output
+    if (formattedUsers.length > 0) {
+      console.log(`📊 Formatted user data (sending to frontend):`, {
+        id: formattedUsers[0].id,
+        totalWinnings: formattedUsers[0].totalWinnings,
+        totalLosses: formattedUsers[0].totalLosses,
+        gamesPlayed: formattedUsers[0].gamesPlayed,
+        gamesWon: formattedUsers[0].gamesWon
+      });
+    }
+
+    return { success: true, users: formattedUsers, total };
+  } catch (error) {
+    console.error('Get all users error:', error);
+    return { success: false, error: 'Failed to retrieve users' };
+  }
+};
+
+export const createUserManually = async (
+  adminId: string,
+  userData: {
+    phone: string;
+    name: string;
+    password?: string;  // Optional custom password
+    initialBalance?: number;
+    role?: string;
+    status?: string;
+    referralCode?: string;
+  }
+): Promise<UserManagementResponse> => {
+  try {
+    // Validate and normalize phone number
+    if (!validateMobileNumber(userData.phone)) {
+      return { success: false, error: 'Invalid phone number format (8-15 digits, international format supported)' };
+    }
+    
+    const normalizedPhone = normalizePhone(userData.phone);
+
+    // Check if user already exists
+    const existingUser = await storage.getUserByPhone(normalizedPhone);
+    if (existingUser) {
+      return { success: false, error: 'User with this phone number already exists' };
+    }
+
+    // Use provided password or default to phone number
+    const passwordToUse = userData.password || userData.phone;
+    const hashedPassword = await bcrypt.hash(passwordToUse, 10);
+
+    // Create user
+    const newUser = await storage.createUser({
+      phone: normalizedPhone,
+      password_hash: hashedPassword,
+      full_name: userData.name,
+      role: userData.role || 'player',
+      status: userData.status || 'active',
+      balance: userData.initialBalance !== undefined ? userData.initialBalance : 0, // Default to 0, not 100000
+      total_winnings: 0,
+      total_losses: 0,
+      games_played: 0,
+      games_won: 0,
+      phone_verified: false,
+      referral_code: userData.referralCode || null,
+      original_deposit_amount: userData.initialBalance !== undefined ? userData.initialBalance : 0, // Default to 0, not 100000
+      deposit_bonus_available: 0,
+      referral_bonus_available: 0,
+      total_bonus_earned: 0,
+      last_login: null
+    } as any);
+
+    // Log the creation (we'll implement this when we add the database table)
+    console.log(`Admin ${adminId} created user ${newUser.id} with phone ${userData.phone}`);
+
+    return {
+      success: true,
+      user: {
+        id: newUser.id,
+        phone: newUser.phone,
+        fullName: newUser.full_name,
+        role: newUser.role,
+        status: newUser.status,
+        balance: parseFloat(newUser.balance),
+        createdAt: newUser.created_at
+      },
+      message: `User created successfully. ${userData.password ? 'Custom password set' : `Default password is: ${passwordToUse}`}`
+    };
+  } catch (error) {
+    console.error('Create user manually error:', error);
+    return { success: false, error: 'Failed to create user' };
+  }
+};
+
+export const updateUserStatus = async (
+  userId: string, 
+  status: 'active' | 'suspended' | 'banned', 
+  adminId: string, 
+  reason?: string
+): Promise<UserManagementResponse> => {
+  try {
+    const user = await storage.getUserById(userId);
+    if (!user) {
+      return { success: false, error: 'User not found' };
+    }
+
+    // Update user status
+    const updatedUser = await storage.updateUser(userId, { status });
+
+    console.log(`Admin ${adminId} updated user ${userId} status to ${status}. Reason: ${reason || 'None'}`);
+
+    return {
+      success: true,
+      user: {
+        id: updatedUser.id,
+        phone: updatedUser.phone,
+        fullName: updatedUser.full_name,
+        status: updatedUser.status,
+        balance: parseFloat(updatedUser.balance)
+      },
+      message: `User status updated to ${status}`
+    };
+  } catch (error) {
+    console.error('Update user status error:', error);
+    return { success: false, error: 'Failed to update user status' };
+  }
+};
+
+export const updateUserBalance = async (
+  userId: string,
+  amount: number,
+  adminId: string,
+  reason: string,
+  type: 'add' | 'subtract' = 'add'
+): Promise<UserManagementResponse> => {
+  try {
+    if (type === 'subtract') {
+      // ✅ For subtractions, just deduct balance (no bonuses apply)
+      await storage.updateUserBalance(userId, -amount);
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return { success: false, error: 'User not found' };
+      }
+      
+      return {
+        success: true,
+        user: {
+          id: user.id,
+          username: user.phone,
+          balance: user.balance,
+          createdAt: user.created_at,
+          updatedAt: user.updated_at
+        },
+        message: `Balance subtracted: ₹${amount.toLocaleString('en-IN')}, reason: ${reason}`
+      };
+    } else {
+      // ✅ UNIFIED SYSTEM: For additions, use approvePaymentRequestAtomic() to apply bonuses
+      // This ensures consistent bonus application whether admin adds balance or user deposits
+      
+      console.log(`💰 Admin ${adminId} adding ₹${amount} to user ${userId} via unified bonus system`);
+      
+      // Step 1: Create a payment request record for audit trail
+      const paymentRequest = await storage.createPaymentRequest({
+        userId: userId,
+        type: 'deposit',
+        amount: amount,
+        paymentMethod: 'admin_credit',
+        paymentDetails: `Admin direct balance addition: ${reason}`,
+        status: 'approved', // Pre-approved since admin is doing it directly
+        adminNotes: `Admin ${adminId}: ${reason}`
+      });
+      
+      console.log(`✅ Created payment request ${paymentRequest.id} for admin balance addition`);
+      
+      // Step 2: Use atomic approval function to add balance WITH bonuses
+      // This applies deposit bonus, referral bonus, and wagering requirements
+      const result = await storage.approvePaymentRequestAtomic(
+        paymentRequest.id,
+        userId,
+        amount,
+        adminId
+      );
+      
+      console.log(`✅ Balance added with bonuses:`, {
+        depositAmount: amount,
+        bonusAmount: result.bonusAmount,
+        wageringRequired: result.wageringRequirement,
+        newBalance: result.balance
+      });
+      
+      // Step 3: Get updated user details
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return { success: false, error: 'User not found' };
+      }
+      
+      // Return detailed response including bonus information
+      return {
+        success: true,
+        user: {
+          id: user.id,
+          username: user.phone,
+          balance: user.balance,
+          createdAt: user.created_at,
+          updatedAt: user.updated_at
+        },
+        data: {
+          depositAmount: amount,
+          bonusAmount: result.bonusAmount,
+          totalCredited: amount + result.bonusAmount,
+          wageringRequirement: result.wageringRequirement,
+          newBalance: result.balance
+        },
+        message: `✅ Balance Added: ₹${amount.toLocaleString('en-IN')} + Bonus: ₹${result.bonusAmount.toLocaleString('en-IN')} = Total: ₹${(amount + result.bonusAmount).toLocaleString('en-IN')}${result.wageringRequirement > 0 ? ` (Wagering: ₹${result.wageringRequirement.toLocaleString('en-IN')})` : ''} | Reason: ${reason}`
+      };
+    }
+  } catch (error) {
+    console.error('❌ User balance update error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'User balance update failed'
+    };
+  }
+};
+
+export const resetUserPassword = async (
+  userId: string,
+  newPassword: string,
+  adminId: string
+): Promise<UserManagementResponse> => {
+  try {
+    // Validate password
+    if (!newPassword || newPassword.length < 6) {
+      return { success: false, error: 'Password must be at least 6 characters long' };
+    }
+
+    // Get user to verify they exist
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return { success: false, error: 'User not found' };
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password in database
+    await storage.updateUser(userId, { password_hash: hashedPassword });
+
+    console.log(`Admin ${adminId} reset password for user ${userId} (${user.phone})`);
+
+    return {
+      success: true,
+      message: `Password reset successfully for user ${user.full_name} (${user.phone})`
+    };
+  } catch (error) {
+    console.error('Reset user password error:', error);
+    return { success: false, error: 'Failed to reset password' };
+  }
+};
+
+export const getUserStatistics = async (userId?: string): Promise<UserManagementResponse> => {
+  try {
+    if (userId) {
+      // Get statistics for a specific user
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return { success: false, error: 'User not found' };
+      }
+
+      // For now, return basic user stats since we don't have detailed game history in this version
+      const statistics = {
+        user: {
+          id: user.id,
+          username: user.phone, // Use phone as username since that's our identifier
+          balance: user.balance,
+          createdAt: user.created_at
+        },
+        gaming: {
+          totalGames: 0, // Placeholder
+          wins: 0,       // Placeholder
+          losses: 0,     // Placeholder
+          winRate: 0,    // Placeholder
+          totalBetAmount: 0,
+          totalPayout: 0,
+          netProfit: 0
+        }
+      };
+
+      return { success: true, user: statistics };
+    } else {
+      // Fetch real platform stats from Supabase
+      const allUsers = await storage.getAllUsers();
+      
+      // Calculate statistics from actual user data
+      const totalUsers = allUsers.length;
+      const activeUsers = allUsers.filter((u: any) => u.status === 'active').length;
+      const suspendedUsers = allUsers.filter((u: any) => u.status === 'suspended').length;
+      const bannedUsers = allUsers.filter((u: any) => u.status === 'banned').length;
+      
+      // Calculate total balance
+      const totalBalance = allUsers.reduce((sum: number, u: any) => {
+        const balance = typeof u.balance === 'string' ? parseFloat(u.balance) : (u.balance || 0);
+        return sum + balance;
+      }, 0);
+      
+      // ✅ FIX: Calculate total winnings and losses from all users
+      const totalWinnings = allUsers.reduce((sum: number, u: any) => {
+        const winnings = u.total_winnings ?? u.totalWinnings ?? 0;
+        const parsed = typeof winnings === 'string' ? parseFloat(winnings) : (typeof winnings === 'number' ? winnings : 0);
+        return sum + (isNaN(parsed) ? 0 : parsed);
+      }, 0);
+      
+      const totalLosses = allUsers.reduce((sum: number, u: any) => {
+        const losses = u.total_losses ?? u.totalLosses ?? 0;
+        const parsed = typeof losses === 'string' ? parseFloat(losses) : (typeof losses === 'number' ? losses : 0);
+        return sum + (isNaN(parsed) ? 0 : parsed);
+      }, 0);
+      
+      // ✅ FIX: Calculate total games played
+      const totalGamesPlayed = allUsers.reduce((sum: number, u: any) => {
+        const games = u.games_played ?? u.gamesPlayed ?? 0;
+        return sum + (typeof games === 'number' ? games : parseInt(games) || 0);
+      }, 0);
+      
+      // Calculate net house profit (losses - winnings)
+      const netHouseProfit = totalLosses - totalWinnings;
+      
+      // Calculate new users today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const newUsersToday = allUsers.filter((u: any) => {
+        if (!u.created_at) return false;
+        const createdAt = new Date(u.created_at);
+        return createdAt >= today;
+      }).length;
+      
+      // Calculate new users this month
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      const newUsersThisMonth = allUsers.filter((u: any) => {
+        if (!u.created_at) return false;
+        const createdAt = new Date(u.created_at);
+        return createdAt >= monthStart;
+      }).length;
+      
+      // Calculate average balance
+      const averageBalance = totalUsers > 0 ? totalBalance / totalUsers : 0;
+      
+      console.log('📊 getUserStatistics - Financial Summary:', {
+        totalUsers,
+        totalWinnings,
+        totalLosses,
+        netHouseProfit,
+        totalGamesPlayed
+      });
+      
+      const statistics = {
+        totalUsers,
+        activeUsers,
+        suspendedUsers,
+        bannedUsers,
+        totalBalance,
+        newUsersToday,
+        newUsersThisMonth,
+        averageBalance,
+        // ✅ NEW: Add financial statistics
+        totalWinnings,
+        totalLosses,
+        netHouseProfit,
+        totalGamesPlayed
+      };
+
+      // ✅ FIX: Return 'data' instead of 'user' to match frontend expectations
+      return { success: true, data: statistics };
+    }
+  } catch (error) {
+    console.error('User statistics error:', error);
+    return { success: false, error: 'User statistics retrieval failed' };
+  }
+};
+
+export const getReferredUsers = async (userId: string): Promise<UserManagementResponse> => {
+  try {
+    const referrals = await storage.getUserReferrals(userId);
+    
+    // Format response
+    const formattedReferrals = referrals.map((referral: any) => ({
+      id: referral.id,
+      referredUserId: referral.referred_user_id,
+      referredUser: {
+        id: referral.referred_user?.id,
+        phone: referral.referred_user?.phone,
+        fullName: referral.referred_user?.full_name,
+        createdAt: referral.referred_user?.created_at
+      },
+      depositAmount: parseFloat(referral.deposit_amount || '0'),
+      bonusAmount: parseFloat(referral.bonus_amount || '0'),
+      bonusApplied: referral.bonus_applied,
+      bonusAppliedAt: referral.bonus_applied_at,
+      createdAt: referral.created_at
+    }));
+
+    return { success: true, users: formattedReferrals };
+  } catch (error) {
+    console.error('Get referred users error:', error);
+    return { success: false, error: 'Failed to retrieve referred users' };
+  }
+};
+
+export const bulkUpdateUserStatus = async (
+  userIds: string[],
+  status: 'active' | 'suspended' | 'banned',
+  adminId: string,
+  reason?: string
+): Promise<UserManagementResponse> => {
+  // For now, this function is not available in the simplified Supabase schema
+  return { 
+    success: false, 
+    error: 'Bulk user status updates not implemented in Supabase version'
+  };
+};
+
+export const exportUserData = async (filters: UserFilters = {}): Promise<UserManagementResponse> => {
+  return { 
+    success: false, 
+    error: 'User data export not implemented in Supabase version'
+  };
+};
+
+export const validateUserProfileUpdate = (updates: UserProfileUpdate): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+
+  if (updates.name !== undefined) {
+    if (!updates.name || updates.name.trim().length < 2) {
+      errors.push('Name must be at least 2 characters');
+    }
+  }
+
+  if (updates.email !== undefined) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(updates.email)) {
+      errors.push('Invalid email format');
+    }
+  }
+
+  if (updates.mobile !== undefined) {
+    if (!validateMobileNumber(updates.mobile)) {
+      errors.push('Valid phone number required (8-15 digits, international format supported)');
+    }
+  }
+
+  if (updates.profile?.dateOfBirth !== undefined) {
+    const dob = new Date(updates.profile.dateOfBirth);
+    const today = new Date();
+    const age = today.getFullYear() - dob.getFullYear();
+    if (age < 18 || age > 100) {
+      errors.push('User must be between 18 and 100 years old');
+    }
+  }
+
+  if (updates.profile?.gender !== undefined) {
+    const validGenders = ['male', 'female', 'other'];
+    if (!validGenders.includes(updates.profile.gender.toLowerCase())) {
+      errors.push('Gender must be male, female, or other');
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};

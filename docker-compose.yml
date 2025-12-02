@@ -1,0 +1,153 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: reddy-anna-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: reddy_anna
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - reddy-anna-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: reddy-anna-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass redis123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - reddy-anna-network
+
+  # OvenMediaEngine (Streaming)
+  ovenmediaengine:
+    image: airensoft/ovenmediaengine:latest
+    container_name: reddy-anna-ome
+    restart: unless-stopped
+    ports:
+      - "1935:1935"   # RTMP
+      - "3333:3333"   # WebRTC
+      - "3478:3478"   # TURN/STUN
+      - "8080:8080"   # HLS
+      - "8081:8081"   # API
+      - "9000:9000"   # WebRTC over TCP
+      - "10000-10005:10000-10005/udp"  # WebRTC UDP
+    volumes:
+      - ome_data:/opt/ovenmediaengine/logs
+      - ./ome-config:/opt/ovenmediaengine/conf
+    networks:
+      - reddy-anna-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: reddy-anna-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/reddy_anna
+      REDIS_URL: redis://:redis123@redis:6379
+      JWT_SECRET: super-secret-jwt-key-change-in-production
+      FRONTEND_URL: http://localhost:3000
+      OME_API_URL: http://ovenmediaengine:8081
+      OME_RTMP_URL: rtmp://ovenmediaengine:1935
+      OME_WEBRTC_URL: ws://ovenmediaengine:3333
+      OME_HLS_URL: http://ovenmediaengine:8080
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - backend_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - reddy-anna-network
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: reddy-anna-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:3001
+      VITE_WS_URL: ws://localhost:3001
+      VITE_STREAM_URL: http://localhost:8080
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - reddy-anna-network
+
+  # Nginx Reverse Proxy (Production)
+  nginx:
+    image: nginx:alpine
+    container_name: reddy-anna-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - reddy-anna-network
+    profiles:
+      - production
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  ome_data:
+    driver: local
+  backend_uploads:
+    driver: local
+  nginx_logs:
+    driver: local
+
+networks:
+  reddy-anna-network:
+    driver: bridge

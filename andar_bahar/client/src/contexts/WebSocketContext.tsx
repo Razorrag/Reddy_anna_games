@@ -1,0 +1,1745 @@
+import React, { createContext, useContext, useCallback, useEffect, useState, useRef, ReactNode } from 'react';
+import { useGameState } from './GameStateContext';
+import { useNotification } from './NotificationContext';
+import { useAuth } from './AuthContext';
+import { apiClient } from '../lib/api-client';
+import type { Card, BetSide } from '../types/game';
+import {
+  WebSocketMessage,
+  GameStateSyncMessage,
+  OpeningCardConfirmedMessage,
+  CardDealtMessage,
+  TimerUpdateMessage,
+  BettingStatsMessage,
+  GameCompleteMessage,
+  GameResetMessage,
+  PhaseChangeMessage,
+  BalanceUpdateMessage,
+  UserBetsUpdateMessage,
+  BetSuccessMessage,
+  AuthErrorMessage,
+  StreamStatusMessage,
+  NotificationMessage,
+  PayoutReceivedMessage,
+} from '../../../shared/src/types/webSocket';
+import WebSocketManager, { ConnectionStatus } from '../lib/WebSocketManager';
+
+import { handleComponentError } from '../lib/utils';
+
+// Validate WebSocket message structure
+const isValidWebSocketMessage = (data: any): data is WebSocketMessage => {
+  return data && typeof data === 'object' && 'type' in data;
+};
+
+// Helper: parse a display string like "A♠" or "10♥" into a Card object
+const parseDisplayCard = (display: string): Card => {
+  const suitSymbol = display.slice(-1);
+  const rankPart = display.slice(0, display.length - 1);
+  const suitMap: Record<string, { name: Card['suit']; color: 'red' | 'black' }> = {
+    '♠': { name: 'spades', color: 'black' },
+    '♥': { name: 'hearts', color: 'red' },
+    '♦': { name: 'diamonds', color: 'red' },
+    '♣': { name: 'clubs', color: 'black' },
+  };
+  const valueMap: Record<string, number> = {
+    A: 1, J: 11, Q: 12, K: 13,
+    '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10,
+  };
+  const suitInfo = suitMap[suitSymbol] || { name: 'spades', color: 'black' };
+  const value = (valueMap[rankPart] ?? parseInt(rankPart, 10)) || 0;
+  return {
+    id: `${rankPart}-${suitInfo.name}`,
+    suit: suitInfo.name,
+    rank: rankPart as any,
+    value,
+    color: suitInfo.color,
+    display,
+  } as Card;
+};
+
+// Helper: Calculate total bet amount from RoundBets (handles arrays or numbers)
+const getTotalBetAmount = (bets: number | number[] | any[] | undefined, side: 'andar' | 'bahar'): number => {
+  if (!bets) return 0;
+  if (typeof bets === 'number') return bets;
+  if (Array.isArray(bets)) {
+    return bets.reduce((sum: number, bet: any) => {
+      const amount = typeof bet === 'number' ? bet : (bet?.amount || 0);
+      return sum + amount;
+    }, 0);
+  }
+  return 0;
+};
+
+
+
+declare global {
+  interface Window {
+    API_BASE_URL?: string;
+  }
+}
+
+interface WebSocketContextType {
+  sendWebSocketMessage: (message: Omit<WebSocketMessage, 'timestamp'>) => void;
+  startGame: (timerDuration?: number) => Promise<void>;
+  dealCard: (card: Card, side: BetSide, position: number) => Promise<void>;
+  placeBet: (side: BetSide, amount: number) => Promise<void>;
+  connectWebSocket: () => void;
+  disconnectWebSocket: () => void;
+  connectionStatus: ConnectionStatus;
+}
+
+const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
+
+const getWebSocketUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    return `${protocol}//${host}/ws`;
+  }
+  return process.env.WEBSOCKET_URL || 'ws://localhost:5000/ws';
+};
+
+export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const {
+    gameState,
+    setGameId,
+    setPhase,
+    setCountdown,
+    setWinner,
+    addAndarCard,
+    addBaharCard,
+    setSelectedOpeningCard,
+    updateTotalBets,
+    setCurrentRound,
+    updatePlayerRoundBets,
+    updateRoundBets,
+    clearCards,
+    resetGame,
+    updatePlayerWallet,
+    setScreenSharing,
+    setWinningCard,
+    addBetToHistory,
+    removeLastBet,
+    clearRoundBets,
+    setBettingLocked,
+    setCelebration,
+    hideCelebration,
+  } = useGameState();
+  const { showNotification } = useNotification();
+  const { state: authState, logout, refreshAccessToken } = useAuth();
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.DISCONNECTED);
+  const [isWebSocketAuthenticated, setIsWebSocketAuthenticated] = useState(false);
+
+  // ✅ ANTI-FLICKER: Track pending bets to prevent out-of-order server confirmations from overwriting
+  const pendingBetsRef = useRef<Set<string>>(new Set());
+
+  const getAuthToken = useCallback(async () => {
+    let currentToken = authState.token;
+
+    const isTokenExpired = (token: string) => {
+      try {
+        const decoded = JSON.parse(atob(token.split('.')[1]));
+        if (decoded && decoded.exp) {
+          const currentTime = Date.now() / 1000;
+          // Add 30 second buffer to prevent premature expiration
+          return decoded.exp < (currentTime - 30);
+        }
+      } catch (e) {
+        console.error('Error decoding token for expiration check:', e);
+        // Don't assume expired if we can't decode - might be a different format
+        return false;
+      }
+      return false;
+    };
+
+    if (currentToken) {
+      if (isTokenExpired(currentToken)) {
+        console.log('Access token expired, attempting to refresh...');
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          currentToken = newToken;
+          console.log('Token refreshed successfully.');
+        } else {
+          console.error('Failed to refresh token, logging out.');
+          logout();
+          showNotification('Session expired, please login again.', 'error');
+          return null;
+        }
+      }
+    } else {
+      console.log('No token found in auth state - this is normal during initial load');
+      // Don't automatically logout - let ProtectedRoute handle the redirect
+      return null;
+    }
+    return currentToken;
+  }, [authState.token, refreshAccessToken, logout, showNotification]);
+
+  const webSocketManagerRef = useRef<WebSocketManager | null>(null);
+
+  const handleWebSocketMessage = useCallback(async (data: WebSocketMessage) => {
+    if (data.type === 'error') {
+      const errorData = data.data;
+      const errorMessage = errorData.message || 'Operation failed';
+
+      // Suppress authentication errors during the authentication process or if user is not authenticated
+      const isAuthError = errorMessage.toLowerCase().includes('authentication') ||
+        errorMessage.toLowerCase().includes('auth required');
+
+      // Suppress auth errors if:
+      // 1. User is not authenticated (expected), OR
+      // 2. WebSocket is not yet authenticated (happening during auth process)
+      if (isAuthError && (!authState.isAuthenticated || !isWebSocketAuthenticated)) {
+        console.log('⚠️ WebSocket auth error suppressed (auth in progress or user not authenticated):', errorMessage);
+        return;
+      }
+
+      console.error('WebSocket error:', errorData);
+      showNotification(errorMessage, 'error');
+      return;
+    }
+
+    switch (data.type) {
+      case 'authenticated': {
+        console.log('✅ WebSocket authenticated successfully:', data.data);
+        setIsWebSocketAuthenticated(true); // Mark as authenticated
+        const gameState = data.data.gameState;
+        const bufferedEvents = data.data.bufferedEvents;
+
+        if (gameState) {
+          console.log('📊 Received game state sync:', {
+            phase: gameState.phase,
+            round: gameState.currentRound,
+            hasOpeningCard: !!gameState.openingCard
+          });
+
+          const {
+            gameId,
+            phase,
+            countdownTimer,
+            timer,
+            winner,
+            currentRound,
+            openingCard,
+            andarCards,
+            baharCards,
+            round1Bets,
+            round2Bets,
+            userBets,
+            playerRound1Bets,
+            playerRound2Bets,
+            userBalance,
+            bettingLocked
+          } = gameState;
+
+          // ✅ FIX: Set gameId from server
+          if (gameId) setGameId(gameId);
+          setPhase(phase as any);
+          setCountdown(countdownTimer || timer || 0);
+          setWinner(winner);
+          setCurrentRound(currentRound as any);
+          // Handle betting locked state
+          if (bettingLocked !== undefined) setBettingLocked(bettingLocked);
+          // Clear cards first, then set opening card so it doesn't get cleared
+          clearCards();
+          if (openingCard) {
+            const parsed = typeof openingCard === 'string' ? parseDisplayCard(openingCard) : openingCard;
+            setSelectedOpeningCard(parsed);
+          }
+          andarCards?.forEach((c: any) => addAndarCard(typeof c === 'string' ? parseDisplayCard(c) : c));
+          baharCards?.forEach((c: any) => addBaharCard(typeof c === 'string' ? parseDisplayCard(c) : c));
+          // CRITICAL: round1Bets/round2Bets are total bets from all players (admin only)
+          // Do NOT update player bets with total bets - only use playerRound1Bets/playerRound2Bets
+          // REMOVED: if (round1Bets) updateTotalBets(round1Bets); - total bets should not be sent to players
+          // REMOVED: if (round2Bets) updateTotalBets(round2Bets); - total bets should not be sent to players
+
+          // ✅ FIX: Convert to numbers (server sends cumulative totals)
+          if (userBets) {
+            const r1Bets = {
+              andar: typeof userBets.round1?.andar === 'number' ? userBets.round1.andar : 0,
+              bahar: typeof userBets.round1?.bahar === 'number' ? userBets.round1.bahar : 0
+            };
+            const r2Bets = {
+              andar: typeof userBets.round2?.andar === 'number' ? userBets.round2.andar : 0,
+              bahar: typeof userBets.round2?.bahar === 'number' ? userBets.round2.bahar : 0
+            };
+            updatePlayerRoundBets(1, r1Bets);
+            updatePlayerRoundBets(2, r2Bets);
+          }
+          if (playerRound1Bets) {
+            const r1Bets = {
+              andar: typeof playerRound1Bets.andar === 'number' ? playerRound1Bets.andar : 0,
+              bahar: typeof playerRound1Bets.bahar === 'number' ? playerRound1Bets.bahar : 0
+            };
+            updatePlayerRoundBets(1, r1Bets);
+          }
+          if (playerRound2Bets) {
+            const r2Bets = {
+              andar: typeof playerRound2Bets.andar === 'number' ? playerRound2Bets.andar : 0,
+              bahar: typeof playerRound2Bets.bahar === 'number' ? playerRound2Bets.bahar : 0
+            };
+            updatePlayerRoundBets(2, r2Bets);
+          }
+          if (userBalance !== undefined) updatePlayerWallet(userBalance);
+
+          // Replay buffered events if any (filter out user-specific events)
+          if (bufferedEvents && Array.isArray(bufferedEvents) && bufferedEvents.length > 0) {
+            // Filter out user-specific events that shouldn't be replayed to other users
+            const filteredEvents = bufferedEvents.filter((event: any) => {
+              // Skip bet_confirmed and user_bets_update - these are user-specific
+              if (event.type === 'bet_confirmed' || event.type === 'user_bets_update') {
+                // Only replay if it's for the current user
+                if (event.data?.userId && authState.user?.id && event.data.userId !== authState.user.id) {
+                  return false;
+                }
+              }
+              return true;
+            });
+
+            // ✅ FIX: Sort buffered events by timestamp/sequence before replaying
+            const sortedEvents = filteredEvents.sort((a: any, b: any) => {
+              const timeA = a.timestamp || a.data?.timestamp || 0;
+              const timeB = b.timestamp || b.data?.timestamp || 0;
+              return timeA - timeB;
+            });
+
+            console.log(`🔄 Replaying ${sortedEvents.length} buffered events in order (filtered ${bufferedEvents.length - filteredEvents.length} user-specific events)`);
+            // Events will be handled by their respective handlers
+            sortedEvents.forEach((event: any, index: number) => {
+              // Process buffered events in sequence with proper timing
+              setTimeout(() => {
+                handleWebSocketMessage({ type: event.type, data: event.data } as any);
+              }, index * 100); // Stagger events to prevent overwhelming
+            });
+          }
+
+          // Fetch fresh data from API to ensure consistency
+          setTimeout(async () => {
+            try {
+              // Fetch balance
+              const balanceRes = await apiClient.get<{ success: boolean, balance: number }>('/user/balance');
+              if (balanceRes.success && balanceRes.balance !== undefined) {
+                updatePlayerWallet(balanceRes.balance);
+              }
+            } catch (error) {
+              console.error('Error fetching data after WebSocket sync:', error);
+            }
+          }, 500);
+        }
+        break;
+      }
+
+      case 'buffered_event': {
+        // Handle individual buffered events sent separately
+        console.log('📦 Received buffered event:', (data as any).data);
+        const event = (data as any).data;
+        if (event && event.type) {
+          handleWebSocketMessage({ type: event.type, data: event.data } as any);
+        }
+        break;
+      }
+
+      case 'token_refreshed':
+        console.log('WebSocket token refreshed:', data.data);
+        // Token was refreshed successfully, no action needed
+        break;
+
+      case 'token_refresh_error':
+        console.error('WebSocket token refresh error:', data.data);
+        showNotification(data.data.message || 'Token refresh failed', 'error');
+        logout();
+        break;
+
+      case 'token_expiry_warning':
+        console.warn('Token expiry warning:', data.data);
+        showNotification(data.data.message || 'Token will expire soon', 'warning');
+        break;
+
+      case 'token_expired':
+        console.error('Token expired:', data.data);
+        showNotification(data.data.message || 'Session expired', 'error');
+        logout();
+        break;
+
+      case 'activity_pong':
+        // Update last activity timestamp from server
+        console.log('Activity pong received:', data.data);
+        break;
+
+      case 'inactivity_warning':
+        console.warn('Inactivity warning:', data.data);
+        showNotification(data.data.message || 'You have been inactive', 'warning');
+        break;
+
+      case 'bet_error':
+        console.error('Bet error:', data.data);
+        const errorMessage = data.data.message || 'Bet failed';
+        const errorType = data.data.code || 'BET_ERROR';
+
+        // ✅ CRITICAL: ROLLBACK OPTIMISTIC BET
+        // Server rejected the bet, so we need to undo the optimistic update
+        if (data.data.betId) {
+          console.log('🔄 Rolling back optimistic bet:', data.data.betId);
+
+          // Dispatch rollback event for GameStateContext
+          window.dispatchEvent(new CustomEvent('rollback-optimistic-bet', {
+            detail: {
+              betId: data.data.betId,
+              side: data.data.side,
+              amount: data.data.amount,
+              round: data.data.round
+            }
+          }));
+        }
+
+        // Show specific error messages based on error code
+        switch (errorType) {
+          case 'AUTH_REQUIRED':
+            showNotification('Authentication required. Please log in again.', 'error');
+            break;
+          case 'MISSING_FIELDS':
+            showNotification(`Missing required field: ${data.data.field || 'unknown'}`, 'error');
+            break;
+          case 'INVALID_SIDE':
+            showNotification('Invalid betting side. Please select Andar or Bahar.', 'error');
+            break;
+          case 'INVALID_AMOUNT':
+            showNotification(`Invalid bet amount: ${data.data.message || 'Please check your bet amount.'}`, 'error');
+            break;
+          case 'INVALID_ROUND':
+            showNotification(`Invalid round: ${data.data.message || 'Please wait for the correct round.'}`, 'error');
+            break;
+          case 'BETTING_CLOSED':
+            showNotification(`Betting is closed: ${data.data.message || 'Please wait for the next betting phase.'}`, 'error');
+            break;
+          case 'BETTING_LOCKED':
+            showNotification('Betting period has ended. Waiting for cards to be dealt.', 'error');
+            break;
+          case 'TIME_EXPIRED':
+            showNotification('Betting time is up!', 'error');
+            break;
+          case 'INVALID_ROUND_FOR_GAME':
+            showNotification(`Cannot place bet for this round. Current round: ${data.data.currentRound || 'unknown'}`, 'error');
+            break;
+          case 'MIN_BET_VIOLATION':
+            showNotification(`Minimum bet is ₹${data.data.minAmount || 1000}`, 'error');
+            break;
+          case 'MAX_BET_VIOLATION':
+            showNotification(`Maximum bet is ₹${data.data.maxAmount || 100000}`, 'error');
+            break;
+          case 'INSUFFICIENT_BALANCE':
+            showNotification(`Insufficient balance. You have ₹${data.data.currentBalance || 0}, but bet is ₹${data.data.required || 0}`, 'error');
+            break;
+          case 'DUPLICATE_BET':
+            showNotification(`You have already placed a bet on ${data.data.side?.toUpperCase() || 'this side'} for round ${data.data.round || 'this round'}`, 'error');
+            break;
+          case 'BALANCE_ERROR':
+            showNotification(`Balance error: ${data.data.message || 'Please check your balance.'}`, 'error');
+            break;
+          case 'BET_PROCESSING_ERROR':
+            showNotification(`Bet processing error: ${data.data.message || 'Please try again.'}`, 'error');
+            break;
+          default:
+            showNotification(errorMessage, 'error');
+        }
+        break;
+
+      case 'bet_confirmed':
+        // CRITICAL: Only process bet_confirmed if it's for the current user
+        if (data.data.userId && authState.user?.id && data.data.userId !== authState.user.id) {
+          console.log(`⚠️ Ignoring bet_confirmed for different user: ${data.data.userId} (current: ${authState.user.id})`);
+          break;
+        }
+
+        console.log('✅ SERVER CONFIRMED:', data.data);
+
+        // ✅ ANTI-FLICKER: Remove bet from pending set
+        if ((data.data as any).betId) {
+          pendingBetsRef.current.delete((data.data as any).betId);
+          console.log(`🔓 Bet confirmed, removed from pending: ${(data.data as any).betId}`);
+        }
+
+        // ✅ ANTI-FLICKER: Use Math.max() to prevent values from decreasing
+        // Only accept server values >= current client values to prevent flickering
+        if (data.data.userRound1Total) {
+          const currentR1 = gameState.playerRound1Bets;
+          // Convert to number if needed (handle arrays/undefined)
+          const currentAndar = typeof currentR1.andar === 'number' ? currentR1.andar : 0;
+          const currentBahar = typeof currentR1.bahar === 'number' ? currentR1.bahar : 0;
+          const newAndar = Math.max(currentAndar, data.data.userRound1Total.andar);
+          const newBahar = Math.max(currentBahar, data.data.userRound1Total.bahar);
+
+          updatePlayerRoundBets(1, { andar: newAndar, bahar: newBahar });
+          console.log(`✅ Round 1 totals updated (anti-flicker): Andar ₹${newAndar}, Bahar ₹${newBahar}`);
+        }
+
+        if (data.data.userRound2Total) {
+          const currentR2 = gameState.playerRound2Bets;
+          // Convert to number if needed (handle arrays/undefined)
+          const currentAndar = typeof currentR2.andar === 'number' ? currentR2.andar : 0;
+          const currentBahar = typeof currentR2.bahar === 'number' ? currentR2.bahar : 0;
+          const newAndar = Math.max(currentAndar, data.data.userRound2Total.andar);
+          const newBahar = Math.max(currentBahar, data.data.userRound2Total.bahar);
+
+          updatePlayerRoundBets(2, { andar: newAndar, bahar: newBahar });
+          console.log(`✅ Round 2 totals updated (anti-flicker): Andar ₹${newAndar}, Bahar ₹${newBahar}`);
+        }
+
+        // ✅ CRITICAL FIX: Ensure bet is in history (server confirmation backup)
+        // This handles cases where optimistic update might have failed
+        if (data.data.round && data.data.side && data.data.amount && data.data.betId) {
+          const round = data.data.round as 1 | 2;
+          const side = data.data.side as 'andar' | 'bahar';
+          const betHistory = round === 1 ? gameState.playerRound1BetHistory : gameState.playerRound2BetHistory;
+          const alreadyInHistory = betHistory[side].some((bet: any) => bet.betId === data.data.betId);
+          
+          if (!alreadyInHistory) {
+            addBetToHistory(round, side, {
+              amount: data.data.amount,
+              betId: data.data.betId,
+              timestamp: data.data.timestamp || Date.now()
+            });
+            console.log(`📝 Server confirmed bet added to history: ${data.data.betId}`);
+          }
+        }
+
+        // ✅ SYNC: Update balance from server (authoritative source)
+        const betBalance = data.data.newBalance;
+        if (betBalance !== undefined && betBalance !== null) {
+          updatePlayerWallet(betBalance);
+          const balanceEvent = new CustomEvent('balance-websocket-update', {
+            detail: {
+              balance: betBalance,
+              amount: -data.data.amount,
+              type: 'bet',
+              timestamp: Date.now()
+            }
+          });
+          window.dispatchEvent(balanceEvent);
+          console.log(`✅ Balance synced: ₹${betBalance.toLocaleString('en-IN')}`);
+        }
+        break;
+
+      case 'bet_undo_success':
+        // Handle bet undo confirmation from server
+        // Only process if it's for the current user
+        if (data.data.userId && authState.user?.id && data.data.userId !== authState.user.id) {
+          console.log(`⚠️ Ignoring bet_undo_success for different user: ${data.data.userId} (current: ${authState.user.id})`);
+          break;
+        }
+
+        console.log('✅ BET UNDO SUCCESS:', data.data);
+
+        // Update balance if provided
+        if (data.data.newBalance !== undefined && data.data.newBalance !== null) {
+          updatePlayerWallet(data.data.newBalance);
+          // Dispatch balance event for other contexts
+          const balanceEvent = new CustomEvent('balance-websocket-update', {
+            detail: {
+              balance: data.data.newBalance,
+              amount: data.data.refundedAmount,
+              type: 'bet_refund',
+              timestamp: Date.now()
+            }
+          });
+          window.dispatchEvent(balanceEvent);
+        }
+
+        // Remove only the last bet (not all bets)
+        if (data.data.round && data.data.side) {
+          removeLastBet(data.data.round as 1 | 2, data.data.side as 'andar' | 'bahar');
+        }
+        break;
+
+      case 'bet_cancelled':
+        // Legacy handler for single bet cancellation
+        // Only process bet_cancelled if it's for the current user
+        if (data.data.userId && authState.user?.id && data.data.userId !== authState.user.id) {
+          console.log(`⚠️ Ignoring bet_cancelled for different user: ${data.data.userId} (current: ${authState.user.id})`);
+          break;
+        }
+
+        console.log('Bet cancelled:', data.data);
+
+        // Update balance if provided
+        if (data.data.newBalance !== undefined && data.data.newBalance !== null) {
+          updatePlayerWallet(data.data.newBalance);
+          // Dispatch balance event for other contexts to update immediately
+          const balanceEvent = new CustomEvent('balance-websocket-update', {
+            detail: {
+              balance: data.data.newBalance,
+              amount: data.data.amount, // Positive for refund
+              type: 'bet_refund',
+              timestamp: Date.now()
+            }
+          });
+          window.dispatchEvent(balanceEvent);
+        }
+
+        // Remove the cancelled bet from local state
+        const cancelledRound = parseInt(data.data.round || '1') as 1 | 2;
+        const cancelledSide = data.data.side as BetSide;
+        removeLastBet(cancelledRound, cancelledSide);
+
+        // ✅ KEEP: Important notification - User needs to know bet was cancelled
+        showNotification(
+          `Bet cancelled: ₹${data.data.amount?.toLocaleString('en-IN') || 0} on ${data.data.side?.toUpperCase() || ''}`,
+          'info'
+        );
+        break;
+
+      case 'sync_game_state':
+      case 'game_state':
+      case 'game:state':
+      case 'game_state_sync': {
+        const gameStateData = (data as any).data;
+
+        // Handle null/undefined game state gracefully
+        if (!gameStateData) {
+          console.log('📊 Received null game state - no active game');
+          return;
+        }
+
+        const {
+          gameId,
+          phase,
+          countdown,
+          countdownTimer,
+          timer,
+          winner,
+          winningCard,
+          currentRound,
+          openingCard,
+          andarCards,
+          baharCards,
+          totalBets,
+          round1Bets,
+          round2Bets,
+          userBets,
+          playerRound1Bets,
+          playerRound2Bets,
+          userBalance,
+          bettingLocked
+        } = gameStateData;
+
+        // ✅ FIX: Set gameId from game_state for late-joining players
+        if (gameId) {
+          setGameId(gameId);
+          console.log(`✅ Game ID set from game_state: ${gameId}`);
+        }
+
+        if (phase) setPhase(phase as any);
+        if (countdown !== undefined) setCountdown(countdown);
+        if (countdownTimer !== undefined || timer !== undefined) setCountdown(countdownTimer || timer || 0);
+        if (winner !== undefined) setWinner(winner);
+        if (currentRound !== undefined) setCurrentRound(currentRound as any);
+        // Handle betting locked state
+        if (bettingLocked !== undefined) setBettingLocked(bettingLocked);
+
+        // Clear cards first, then set opening card so it doesn't get cleared
+        if (andarCards || baharCards || openingCard) {
+          clearCards();
+        }
+        if (openingCard) {
+          const parsed = typeof openingCard === 'string' ? parseDisplayCard(openingCard) : openingCard;
+          setSelectedOpeningCard(parsed);
+        }
+        if (andarCards || baharCards) {
+          andarCards?.forEach((c: any) => addAndarCard(typeof c === 'string' ? parseDisplayCard(c) : c));
+          baharCards?.forEach((c: any) => addBaharCard(typeof c === 'string' ? parseDisplayCard(c) : c));
+        }
+        // CRITICAL: round1Bets/round2Bets are total bets from all players (admin only)
+        // Do NOT use them for player bets - only use playerRound1Bets/playerRound2Bets
+        // Total bets are only for admin displays, not for player buttons
+        if (totalBets) updateTotalBets(totalBets);
+        // ✅ FIX: Update round bets for admin dashboard (game_state_sync includes these)
+        // Create new objects to ensure React detects the change
+        if (round1Bets) {
+          const newRound1Bets = {
+            andar: round1Bets.andar || 0,
+            bahar: round1Bets.bahar || 0
+          };
+          updateRoundBets(1, newRound1Bets);
+        }
+        if (round2Bets) {
+          const newRound2Bets = {
+            andar: round2Bets.andar || 0,
+            bahar: round2Bets.bahar || 0
+          };
+          updateRoundBets(2, newRound2Bets);
+        }
+        // ✅ FIX: Convert to numbers (server sends cumulative totals)
+        if (userBets) {
+          const r1Bets = {
+            andar: typeof userBets.round1?.andar === 'number' ? userBets.round1.andar : 0,
+            bahar: typeof userBets.round1?.bahar === 'number' ? userBets.round1.bahar : 0
+          };
+          const r2Bets = {
+            andar: typeof userBets.round2?.andar === 'number' ? userBets.round2.andar : 0,
+            bahar: typeof userBets.round2?.bahar === 'number' ? userBets.round2.bahar : 0
+          };
+          updatePlayerRoundBets(1, r1Bets);
+          updatePlayerRoundBets(2, r2Bets);
+        }
+        // ✅ FIX: Ensure numbers for playerRound bets
+        if (playerRound1Bets) {
+          const r1Bets = {
+            andar: typeof playerRound1Bets.andar === 'number' ? playerRound1Bets.andar : 0,
+            bahar: typeof playerRound1Bets.bahar === 'number' ? playerRound1Bets.bahar : 0
+          };
+          updatePlayerRoundBets(1, r1Bets);
+        }
+        if (playerRound2Bets) {
+          const r2Bets = {
+            andar: typeof playerRound2Bets.andar === 'number' ? playerRound2Bets.andar : 0,
+            bahar: typeof playerRound2Bets.bahar === 'number' ? playerRound2Bets.bahar : 0
+          };
+          updatePlayerRoundBets(2, r2Bets);
+        }
+        if (userBalance !== undefined) updatePlayerWallet(userBalance);
+
+        console.log('✅ Game state synced on reconnect', {
+          phase,
+          round: currentRound,
+          bettingLocked,
+          andarCardsCount: andarCards?.length || 0,
+          baharCardsCount: baharCards?.length || 0
+        });
+        break;
+      }
+
+      case 'opening_card_confirmed': {
+        const { gameId, openingCard, phase, round, timer } = (data as OpeningCardConfirmedMessage).data;
+        const parsed = typeof openingCard === 'string' ? parseDisplayCard(openingCard) : openingCard;
+
+        // ✅ FIX: Clear game state for new game AND hide celebration
+        // Celebration should be hidden when new game starts
+        console.log('🎮 New game starting - clearing old state and hiding celebration');
+
+        // Clear cards and bets from previous game
+        clearCards();
+        clearRoundBets(1);  // Clear round 1 bets
+        clearRoundBets(2);  // Clear round 2 bets
+        setWinner(null);
+        setWinningCard(null);
+
+        // Hide celebration when new game starts
+        hideCelebration();
+
+        if (gameId) {
+          setGameId(gameId);
+          console.log(`✅ Game ID set from opening_card_confirmed: ${gameId}`);
+        }
+
+        setSelectedOpeningCard(parsed);
+        setPhase(phase);
+        setCurrentRound(round);
+        setCountdown(timer);
+        break;
+      }
+
+      // Server confirmation just for admin; state is driven by opening_card_confirmed
+      case 'game_started': {
+        // No-op to avoid console warnings
+        break;
+      }
+
+      case 'card_dealt': {
+        const { side, card, isWinningCard } = (data as CardDealtMessage).data;
+        const parsedCard = typeof card === 'string' ? parseDisplayCard(card) : card;
+        if (side === 'andar') {
+          addAndarCard(parsedCard);
+        } else {
+          addBaharCard(parsedCard);
+        }
+
+        if (isWinningCard) {
+          console.log('🏆 Winning card dealt, waiting for server game_complete message...');
+        }
+        break;
+      }
+
+      case 'timer_update': {
+        const { seconds, phase, round, bettingLocked } = (data as TimerUpdateMessage).data;
+        setCountdown(seconds);
+        setPhase(phase);
+        if (round) {
+          setCurrentRound(round);
+        }
+
+        // NEW: Update betting locked state from timer update
+        if (bettingLocked !== undefined) {
+          setBettingLocked(bettingLocked);
+        } else {
+          // Calculate from seconds if not provided
+          setBettingLocked(seconds <= 0);
+        }
+        break;
+      }
+
+      case 'betting_stats': {
+        // ✅ FIX: betting_stats is now only sent to other users, not the bettor
+        // This prevents duplicate updates for the user who placed the bet
+        // The bettor already has bet_confirmed and user_bets_update
+        const { andarTotal, baharTotal, round1Bets, round2Bets } = (data as BettingStatsMessage).data;
+        updateTotalBets({ andar: andarTotal, bahar: baharTotal });
+        // Update round-specific bets (only for display, not user's own bets)
+        if (round1Bets) {
+          updateRoundBets(1, round1Bets);
+        }
+        if (round2Bets) {
+          updateRoundBets(2, round2Bets);
+        }
+        break;
+      }
+
+      case 'game_complete': {
+        console.log('🎊 RECEIVED game_complete event:', JSON.stringify(data, null, 2));
+        const gameCompleteData = (data as GameCompleteMessage).data;
+        if (!gameCompleteData) {
+          console.error('❌ game_complete message missing data');
+          break;
+        }
+
+        const { winner, winningCard, round, userPayout, winnerDisplay, newBalance } = gameCompleteData as any;
+
+        console.log('🎊 game_complete parsed data:', { winner, winningCard, round, userPayout, winnerDisplay, newBalance });
+
+        // ✅ CRITICAL FIX: Update balance immediately for instant UI update
+        if (newBalance !== undefined && newBalance !== null) {
+          updatePlayerWallet(newBalance);
+          console.log(`✅ Balance updated instantly after game complete: ₹${newBalance}`);
+
+          // Dispatch event for BalanceContext
+          const balanceEvent = new CustomEvent('balance-websocket-update', {
+            detail: { balance: newBalance, type: 'game_complete', timestamp: Date.now() }
+          });
+          window.dispatchEvent(balanceEvent);
+        }
+
+        if (!winner || !winningCard) {
+          console.error('❌ game_complete message missing winner or winningCard:', { winner, winningCard });
+          break;
+        }
+
+        // ✅ SINGLE SOURCE OF TRUTH: Only use server data from game_complete
+        let payoutAmount = 0;
+        let totalBetAmount = 0;
+        let netProfit = 0;
+        let result: 'no_bet' | 'refund' | 'mixed' | 'win' | 'loss' = 'no_bet';
+
+        // ✅ CRITICAL FIX: Always process userPayout, even if all values are 0
+        if (userPayout && typeof userPayout === 'object') {
+          console.log('🎊 User Payout data received:', JSON.stringify(userPayout, null, 2));
+          payoutAmount = userPayout.amount || 0;
+          totalBetAmount = userPayout.totalBet || 0;
+          netProfit = userPayout.netProfit ?? (payoutAmount - totalBetAmount);
+          result = userPayout.result || (totalBetAmount === 0 ? 'no_bet' : netProfit > 0 ? 'win' : netProfit === 0 ? 'refund' : 'loss');
+
+          console.log('🎊 Game Complete - Server authoritative data:', { payoutAmount, totalBetAmount, netProfit, result });
+        } else {
+          // ✅ FIX: Even if no userPayout object, still show celebration with no_bet
+          console.log('ℹ️ No userPayout object - defaulting to no_bet celebration');
+          result = 'no_bet';
+        }
+
+        // ✅ CRITICAL: ALWAYS create and dispatch celebration, even with no bets
+        const celebrationData = {
+          winner,
+          winningCard,
+          round: round || gameState.currentRound,
+          winnerDisplay,
+          payoutAmount,
+          totalBetAmount,
+          netProfit,
+          result,
+          dataSource: 'game_complete_direct' as const
+        };
+
+        console.log('🎊 Setting celebration with data:', JSON.stringify(celebrationData, null, 2));
+        console.log('🎊 FORCING celebration display for result:', result);
+
+        // ✅ CRITICAL: Set celebration in context (triggers component render)
+        setCelebration(celebrationData);
+
+        const celebrationEvent = new CustomEvent('game-complete-celebration', {
+          detail: celebrationData
+        });
+        window.dispatchEvent(celebrationEvent);
+
+        console.log('🎊 Setting phase to complete and winner to:', winner);
+        setPhase('complete');
+        setWinner(winner);
+
+        if (round) {
+          setCurrentRound(round as any);
+        }
+
+        try {
+          if (winningCard) {
+            const card = typeof winningCard === 'string'
+              ? parseDisplayCard(winningCard)
+              : winningCard;
+            setWinningCard(card);
+          }
+        } catch (error) {
+          console.error('❌ Error parsing winning card:', error);
+        }
+
+        break;
+      }
+
+      case 'game_reset': {
+        const { message } = (data as GameResetMessage).data;
+        resetGame();
+
+        // ✅ CRITICAL FIX: Clear all player bets when game resets
+        clearRoundBets(1);  // Clear round 1 bets
+        clearRoundBets(2);  // Clear round 2 bets
+
+        // ✅ CRITICAL FIX: Reset betting UI to zero (numbers, not arrays)
+        updatePlayerRoundBets(1, { andar: 0, bahar: 0 });
+        updatePlayerRoundBets(2, { andar: 0, bahar: 0 });
+
+        console.log('🔄 Game reset - bets cleared:', message);
+        break;
+      }
+
+      case 'game_return_to_opening': {
+        console.log('🔄 Returning to opening card panel');
+        const { gameState, message } = (data as any).data;
+        setPhase('idle');
+        setCurrentRound(1);
+        clearCards();
+        setSelectedOpeningCard(null);
+        setWinner(null);
+        setWinningCard(null);
+        console.log('🔄 Game return to opening:', message);
+        break;
+      }
+
+      case 'start_round_2': {
+        // ✅ FIX: Handle Round 2 start with proper timer initialization
+        const { phase, round, timer, bettingLocked, round1Bets, message } = (data as any).data;
+        console.log(`🔄 ROUND 2 START: Timer=${timer}s, Phase=${phase}, BettingLocked=${bettingLocked}`);
+
+        setPhase(phase);
+        setCurrentRound(round);
+        setBettingLocked(bettingLocked || false);
+
+        // ✅ CRITICAL: Set timer from server (not 0)
+        if (timer !== undefined && timer > 0) {
+          setCountdown(timer);
+          console.log(`✅ Round 2 timer initialized: ${timer}s`);
+        }
+
+        if (message) {
+          console.log('🔄 Round 2 message:', message);
+        }
+        break;
+      }
+
+      case 'phase_change': {
+        const { phase, round, message, bettingLocked } = (data as PhaseChangeMessage).data;
+        setPhase(phase);
+        setCurrentRound(round);
+
+        // NEW: Properly update betting locked state
+        if (bettingLocked !== undefined) {
+          setBettingLocked(bettingLocked);
+        } else {
+          // For backward compatibility, calculate betting status based on phase
+          const isBettingPhase = phase === 'betting';
+          const isBettingLocked = !isBettingPhase || gameState.countdownTimer <= 0;
+          setBettingLocked(isBettingLocked);
+        }
+
+        if (message) {
+          console.log('🔄 Phase change:', message);
+        }
+        break;
+      }
+
+      case 'balance_update': {
+        // ✅ FIX: Only process balance_update if it's NOT from bet_confirmed
+        // bet_confirmed already handles balance updates, so this prevents duplicates
+        // Check if we recently received a bet_confirmed to avoid duplicate updates
+        const { balance, amount, type } = (data as BalanceUpdateMessage).data;
+
+        // Skip if this is a bet-related balance update (already handled by bet_confirmed)
+        if (type === 'bet') {
+          console.log('⚠️ Skipping duplicate balance_update from bet - already handled by bet_confirmed');
+          break;
+        }
+
+        // ✅ NEW: Immediately update wallet for game_complete_refresh (instant balance after game)
+        if (type === 'game_complete_refresh' && balance !== undefined && balance !== null) {
+          updatePlayerWallet(balance);
+          console.log(`✅ Instant balance refresh after game complete: ₹${balance}`);
+        }
+        
+        // ✅ NEW: Clear referral data cache when bonus credits occur
+        if (type === 'bonus' && amount > 0) {
+          // Clear referral cache to refresh statistics
+          localStorage.removeItem('referral_data_cache');
+          localStorage.removeItem('referral_data_cache_timestamp');
+          console.log(`🔄 Cleared referral data cache due to bonus credit: ₹${amount}`);
+        }
+
+        const balanceEvent = new CustomEvent('balance-websocket-update', {
+          detail: { balance, amount, type, timestamp: Date.now() }
+        });
+        window.dispatchEvent(balanceEvent);
+        updatePlayerWallet(balance);
+        break;
+      }
+
+      case 'payout_received': {
+        const wsData = (data as any).data;
+        console.log('💰 Payout received (balance update only):', wsData);
+
+        // Only update balance, celebration is handled by game_complete
+        if (wsData.balance !== undefined && wsData.balance !== null) {
+          updatePlayerWallet(wsData.balance);
+
+          const balanceEvent = new CustomEvent('balance-websocket-update', {
+            detail: {
+              balance: wsData.balance,
+              amount: wsData.netProfit || 0,
+              type: 'payout',
+              timestamp: Date.now()
+            }
+          });
+          window.dispatchEvent(balanceEvent);
+        }
+        break;
+      }
+
+      // ✅ FIX #4: Balance correction handler
+      case 'balance_correction': {
+        const wsData = (data as any).data;
+        console.log('💰 Balance correction received:', wsData);
+
+        // Update balance from server correction (highest priority)
+        if (wsData.balance !== undefined && wsData.balance !== null) {
+          updatePlayerWallet(wsData.balance);
+
+          // Dispatch balance event for other contexts to update immediately
+          const balanceEvent = new CustomEvent('balance-websocket-update', {
+            detail: {
+              balance: wsData.balance,
+              amount: 0, // Correction, not a transaction
+              type: 'correction',
+              reason: wsData.reason || 'Balance correction',
+              timestamp: wsData.timestamp || Date.now()
+            }
+          });
+          window.dispatchEvent(balanceEvent);
+
+          // Show notification if reason is provided and it's not the default verification message
+          if (wsData.reason && wsData.reason !== 'Balance correction after verification') {
+            showNotification(`Balance corrected: ₹${wsData.balance.toLocaleString('en-IN')}`, 'info');
+          }
+        }
+        break;
+      }
+
+      // Payout error handler
+      case 'payout_error': {
+        const wsData = (data as any).data;
+        console.error('❌ Payout error:', wsData);
+        showNotification(wsData.message || 'Payout processing error. Please contact support.', 'error');
+        break;
+      }
+
+      // Payment request notifications
+      case 'admin_payment_notification': {
+        const { message, reason, timestamp } = (data as any).data;
+        showNotification(message, 'success');
+
+        // Refresh balance after payment approval
+        const balanceEvent = new CustomEvent('refresh-balance', {
+          detail: { source: 'payment-notification' }
+        });
+        window.dispatchEvent(balanceEvent);
+
+        // Update profile if on profile page
+        const profileUpdateEvent = new CustomEvent('payment-request-updated', {
+          detail: { message, reason, timestamp }
+        });
+        window.dispatchEvent(profileUpdateEvent);
+        break;
+      }
+
+      // ✅ FIX: Stream status update (pause/play) - instant notification to players
+      case 'stream_pause_state': {
+        const { isPaused, timestamp } = (data as any).data;
+        console.log(`⚡ [WebSocket] Stream ${isPaused ? 'PAUSED' : 'RESUMED'} by admin`);
+
+        // Dispatch event for VideoArea to refetch config instantly
+        window.dispatchEvent(new CustomEvent('stream_status_updated', {
+          detail: { isPaused, timestamp }
+        }));
+        break;
+      }
+
+      // ✅ FIX: Alternative stream status update message (for compatibility)
+      case 'stream_status_updated': {
+        console.log('⚡ [WebSocket] Received stream_status_updated event!');
+        window.dispatchEvent(new CustomEvent('stream_status_updated', {
+          detail: (data as any).data
+        }));
+        break;
+      }
+
+      // User status change notifications
+      case 'status_update': {
+        const { userId, status, reason, timestamp } = (data as any).data;
+        if (userId === authState.user?.id) {
+          showNotification(`Account status changed to ${status}. ${reason || ''}`, 'warning');
+
+          // Redirect to login if banned/suspended
+          if (status === 'banned' || status === 'suspended') {
+            setTimeout(() => {
+              webSocketManagerRef.current?.disconnect();
+              logout();
+              window.location.href = '/login';
+            }, 3000);
+          }
+        }
+        break;
+      }
+
+      // Admin dashboards: real-time bet updates
+      case 'admin_bet_update': {
+        const betData = (data as any).data;
+
+        console.log('📨 Received admin_bet_update:', betData);
+
+        // ✅ FIX: Update GameState context with new bet totals so admin dashboard displays them
+        // Create new objects to ensure React detects the change
+        if (betData.round1Bets) {
+          const round1Bets = {
+            andar: betData.round1Bets.andar || 0,
+            bahar: betData.round1Bets.bahar || 0
+          };
+          console.log('🔄 Updating round1Bets:', round1Bets);
+          updateRoundBets(1, round1Bets);
+        }
+        if (betData.round2Bets) {
+          const round2Bets = {
+            andar: betData.round2Bets.andar || 0,
+            bahar: betData.round2Bets.bahar || 0
+          };
+          console.log('🔄 Updating round2Bets:', round2Bets);
+          updateRoundBets(2, round2Bets);
+        }
+
+        // Also dispatch event for other components that may listen
+        const event = new CustomEvent('admin_bet_update', {
+          detail: betData
+        });
+        window.dispatchEvent(event);
+
+        console.log('✅ Admin bet totals updated via WebSocket:', {
+          round1: betData.round1Bets,
+          round2: betData.round2Bets,
+          totalAndar: betData.totalAndar,
+          totalBahar: betData.totalBahar
+        });
+
+        // ✅ CRITICAL: Force a re-render by dispatching a custom event
+        // This ensures admin components update even if React doesn't detect the change
+        window.dispatchEvent(new CustomEvent('gameStateUpdated', {
+          detail: {
+            round1Bets: betData.round1Bets,
+            round2Bets: betData.round2Bets
+          }
+        }));
+        break;
+      }
+
+      // Analytics dashboard: real-time aggregate updates
+      case 'analytics_update': {
+        const wsData = (data as any).data;
+
+        // Check if this is a typed analytics update (daily/monthly/yearly)
+        if (wsData?.type && (wsData.type === 'daily' || wsData.type === 'monthly' || wsData.type === 'yearly')) {
+          // Preserve the type for typed updates (daily/monthly/yearly)
+          const analyticsEvent = new CustomEvent('analytics-update', {
+            detail: {
+              type: wsData.type,
+              data: wsData.data
+            }
+          });
+          window.dispatchEvent(analyticsEvent);
+        } else {
+          // For real-time stats updates (no inner type - has currentGame, todayStats, etc.)
+          const analyticsEvent = new CustomEvent('realtime-analytics-update', {
+            detail: wsData
+          });
+          window.dispatchEvent(analyticsEvent);
+
+          // Also emit generic analytics-update for backward compatibility
+          const genericEvent = new CustomEvent('analytics-update', {
+            detail: { type: 'realtime', data: wsData }
+          });
+          window.dispatchEvent(genericEvent);
+        }
+        break;
+      }
+
+      // Game history update for ALL users (basic data)
+      case 'game_history_update' as any: {
+        const event = new CustomEvent('game_history_update', {
+          detail: (data as any).data
+        });
+        window.dispatchEvent(event);
+        break;
+      }
+
+      // ✅ FIX #5: Admin-specific game history update (detailed analytics)
+      case 'game_history_update_admin' as any: {
+        // Admin-specific detailed game history update
+        const adminEvent = new CustomEvent('game_history_update_admin', {
+          detail: (data as any).data
+        });
+        window.dispatchEvent(adminEvent);
+
+        // Also emit the regular game_history_update for backward compatibility
+        const regularEvent = new CustomEvent('game_history_update', {
+          detail: (data as any).data
+        });
+        window.dispatchEvent(regularEvent);
+        break;
+      }
+
+      // Admin notifications (requests, status changes)
+      case 'admin_notification': {
+        const adminEvent = new CustomEvent('admin_notification', {
+          detail: (data as any)
+        });
+        window.dispatchEvent(adminEvent);
+        break;
+      }
+
+      // Bonus updates (e.g., claim, grant)
+      case 'bonus_update': {
+        const bonusEvent = new CustomEvent('bonus_update', {
+          detail: (data as any).data
+        });
+        window.dispatchEvent(bonusEvent);
+        break;
+      }
+
+      // Conditional bonus applied notification
+      case 'conditional_bonus_applied': {
+        const { message } = (data as any).data;
+        showNotification(message, 'success');
+
+        // Refresh balance after bonus
+        const balanceEvent = new CustomEvent('refresh-balance', {
+          detail: { source: 'conditional-bonus' }
+        });
+        window.dispatchEvent(balanceEvent);
+        break;
+      }
+
+
+
+      case 'user_bets_update': {
+        // ✅ FIX: user_bets_update is sent after DB fetch, but bet_confirmed already updated local state
+        // This is a refresh from DB to ensure consistency, but we should avoid duplicate notifications
+        // CRITICAL: user_bets_update should only be received by the user who placed the bet
+        // This is sent directly from server, but double-check it's not for another user
+
+        // ✅ CRITICAL FIX: Server now sends cumulative totals (numbers), not arrays
+        const { round1Bets, round2Bets } = (data as UserBetsUpdateMessage).data;
+
+        // Convert to numbers (cumulative totals)
+        const r1Bets = {
+          andar: typeof round1Bets?.andar === 'number' ? round1Bets.andar : 0,
+          bahar: typeof round1Bets?.bahar === 'number' ? round1Bets.bahar : 0
+        };
+        const r2Bets = {
+          andar: typeof round2Bets?.andar === 'number' ? round2Bets.andar : 0,
+          bahar: typeof round2Bets?.bahar === 'number' ? round2Bets.bahar : 0
+        };
+
+        // ✅ FIX: Silently update bets without showing notification (bet_confirmed already showed it)
+        // This is just a refresh from DB to ensure consistency
+        updatePlayerRoundBets(1, r1Bets);
+        updatePlayerRoundBets(2, r2Bets);
+        break;
+      }
+
+      case 'bet_success': {
+        // ✅ FIX: bet_success is a legacy/duplicate handler - bet_confirmed is the primary handler
+        // This should not be sent from server anymore, but handle it gracefully if it arrives
+        console.warn('⚠️ Received bet_success message - this is deprecated. Use bet_confirmed instead.');
+        const { side, amount, round, newBalance, message } = (data as BetSuccessMessage).data;
+        // Don't show notification - bet_confirmed already showed it (if it was sent)
+        // Only update if bet_confirmed wasn't already processed
+        updatePlayerWallet(newBalance);
+
+        // ✅ CRITICAL FIX: Add to cumulative total (number), not array
+        const currentBets = round === 1 ? gameState.playerRound1Bets : gameState.playerRound2Bets;
+        const currentTotal = typeof currentBets[side as keyof typeof currentBets] === 'number'
+          ? (currentBets[side as keyof typeof currentBets] as number)
+          : 0;
+        const newBets = {
+          ...currentBets,
+          [side]: currentTotal + amount, // Simple addition
+        };
+        updatePlayerRoundBets(round, newBets);
+        break;
+      }
+
+      case 'auth_error': {
+        const { message, redirectTo } = (data as AuthErrorMessage).data;
+        console.error('❌ WebSocket authentication error:', message);
+        console.error('Auth state at error time:', {
+          isAuthenticated: authState.isAuthenticated,
+          hasToken: !!authState.token,
+          hasUser: !!authState.user,
+          userRole: authState.user?.role
+        });
+        showNotification(`Authentication failed: ${message}`, 'error');
+
+        // Disconnect WebSocket before logout
+        webSocketManagerRef.current?.disconnect();
+
+        logout();
+        if (redirectTo) {
+          setTimeout(() => {
+            window.location.href = redirectTo;
+          }, 2000);
+        }
+        break;
+      }
+
+      case 'stream_status': {
+        const { status, method, url } = (data as StreamStatusMessage).data;
+        const event = new CustomEvent('stream_status', {
+          detail: { status, method, url }
+        });
+        window.dispatchEvent(event);
+        break;
+      }
+
+      case 'notification': {
+        const { message, type } = (data as NotificationMessage).data;
+        showNotification(message, type);
+        break;
+      }
+
+      case 'game_reset_ack':
+        // Acknowledgment from server that game reset was successful
+        console.log('✅ Game reset acknowledged by server');
+        break;
+
+      default:
+        console.log('Unknown message type:', data.type);
+    }
+  }, [addAndarCard, addBaharCard, clearCards, gameState.playerRound1Bets, gameState.playerRound2Bets, logout, resetGame, setCurrentRound, setCountdown, setPhase, setSelectedOpeningCard, setWinner, setWinningCard, showNotification, updatePlayerRoundBets, updateTotalBets, updatePlayerWallet, authState.user?.id, authState.isAuthenticated, isWebSocketAuthenticated]);
+
+  const initWebSocketManager = useCallback(() => {
+    if (webSocketManagerRef.current) {
+      console.log('WebSocketManager already initialized');
+      return;
+    }
+
+    const wsUrl = getWebSocketUrl();
+    console.log('🔧 Initializing WebSocketManager with URL:', wsUrl);
+
+    webSocketManagerRef.current = WebSocketManager.getInstance({
+      url: wsUrl,
+      tokenProvider: getAuthToken,
+      onMessage: (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (!isValidWebSocketMessage(data)) {
+            console.warn('⚠️ Received invalid WebSocket message:', data);
+            return;
+          }
+          handleWebSocketMessage(data);
+        } catch (parseError) {
+          console.error('❌ WebSocket message parsing error:', parseError);
+          handleComponentError(parseError, 'WebSocket message parsing');
+        }
+      },
+      onOpen: () => {
+        console.log('✅ WebSocket opened - showing notification');
+        showNotification('Connected to game server', 'success');
+      },
+      onClose: (event) => {
+        console.log('🔌 WebSocket closed:', event.code, event.reason);
+
+        // Handle different close codes
+        if (event.code === 1008 || event.code === 4008) {
+          console.log('⚠️ WebSocket auth failed (code ' + event.code + ')');
+          showNotification('Authentication failed. Reconnecting...', 'warning');
+          // WebSocketManager will handle reconnection automatically
+        } else if (event.code === 1000) {
+          console.log('✅ WebSocket closed normally');
+        } else {
+          console.log('⚠️ WebSocket closed with code:', event.code);
+          showNotification('Connection lost. Reconnecting...', 'warning');
+        }
+      },
+      onError: (error) => {
+        console.error('❌ WebSocket connection error:', error);
+        showNotification('Connection error. Please check your network.', 'error');
+        // Don't logout on connection errors - WebSocketManager handles reconnection
+      },
+    });
+
+    webSocketManagerRef.current.on('statusChange', (status) => {
+      console.log('📡 WebSocket status changed to:', status);
+      setConnectionStatus(status);
+    });
+
+    console.log('✅ WebSocketManager initialized successfully');
+  }, [getAuthToken, handleWebSocketMessage, showNotification]);
+
+  const connectWebSocket = useCallback(() => {
+    setIsWebSocketAuthenticated(false); // Reset auth state when reconnecting
+    initWebSocketManager();
+    webSocketManagerRef.current?.connect();
+  }, [initWebSocketManager]);
+
+  const disconnectWebSocket = useCallback(() => {
+    setIsWebSocketAuthenticated(false); // Reset auth state on disconnect
+    webSocketManagerRef.current?.disconnect();
+  }, []);
+
+  const sendWebSocketMessage = useCallback((message: Omit<WebSocketMessage, 'timestamp'>) => {
+    const messageWithTimestamp = {
+      ...message,
+      timestamp: new Date().toISOString()
+    };
+
+    // Enhanced connection state check before sending
+    if (!webSocketManagerRef.current) {
+      console.error('WebSocketManager: Cannot send message, manager not initialized', message);
+      return;
+    }
+
+    const currentStatus = webSocketManagerRef.current.getStatus();
+    if (currentStatus !== ConnectionStatus.CONNECTED) {
+      console.error(`WebSocketManager: Cannot send message, not connected. Status: ${currentStatus}`, message);
+      showNotification('Connection to game server lost. Please refresh the page.', 'error');
+      return;
+    }
+
+    webSocketManagerRef.current.send(messageWithTimestamp);
+  }, [showNotification]);
+
+  const startGame = async (timerDuration?: number) => {
+    if (!gameState.selectedOpeningCard) {
+      showNotification('Please select an opening card first!', 'error');
+      return;
+    }
+
+    // DEBUG: Log current auth state
+    console.log('🎮 START GAME REQUEST - Auth state:', {
+      userId: authState.user?.id,
+      userRole: authState.user?.role,
+      token: authState.token ? 'present' : 'missing',
+      isAuthenticated: authState.isAuthenticated,
+      wsStatus: connectionStatus,
+      wsReadyState: webSocketManagerRef.current?.getWebSocket()?.readyState
+    });
+
+    // Check if we have a proper role before sending admin commands
+    if (!authState.user?.role || (authState.user.role !== 'admin' && authState.user.role !== 'super_admin')) {
+      showNotification(`Only admins can start games. Current role: ${authState.user?.role || 'unknown'}. Please login as admin.`, 'error');
+      return;
+    }
+
+    // ✅ FIX: Check BOTH connection status AND actual WebSocket ready state
+    const ws = webSocketManagerRef.current?.getWebSocket();
+    const isConnected = connectionStatus === ConnectionStatus.CONNECTED && ws?.readyState === WebSocket.OPEN;
+
+    if (!isConnected) {
+      console.error('❌ Cannot start game - WebSocket not ready:', {
+        connectionStatus,
+        wsReadyState: ws?.readyState,
+        wsReadyStateText: ws ? ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][ws.readyState] : 'null'
+      });
+      showNotification('Connecting to game server... Please wait.', 'warning');
+      return;
+    }
+
+    try {
+      console.log('🎮 Starting game with opening card:', gameState.selectedOpeningCard);
+      if (timerDuration) {
+        console.log(`⏱️  Using custom timer: ${timerDuration}s`);
+      } else {
+        console.log('⏱️  Timer will use backend settings');
+      }
+
+      sendWebSocketMessage({
+        type: 'start_game',
+        data: {
+          openingCard: gameState.selectedOpeningCard.display,
+          ...(timerDuration && { timerDuration }), // Only include if provided
+        }
+      });
+
+      showNotification('Game started! Betting phase is open.', 'success');
+    } catch (error) {
+      handleComponentError(error, 'startGame');
+      showNotification('Failed to start game. Please try again.', 'error');
+      console.error('startGame error:', error);
+    }
+  };
+
+  const dealCard = async (card: Card, side: BetSide, position: number) => {
+    // Check if we have admin role before sending admin commands
+    if (authState.user?.role !== 'admin' && authState.user?.role !== 'super_admin') {
+      showNotification('Only admins can deal cards.', 'error');
+      return;
+    }
+
+    // Wait for WebSocket to be connected before sending
+    if (connectionStatus !== ConnectionStatus.CONNECTED) {
+      showNotification('Connecting to game server... Please wait.', 'warning');
+      return;
+    }
+
+    try {
+      console.log(`🃏 Dealing card: ${card.display} on ${side} at position ${position}`);
+      sendWebSocketMessage({
+        type: 'deal_card',
+        data: {
+          gameId: gameState.gameId || 'default-game',
+          card: card.display,
+          side: side,
+          position: position
+        }
+      });
+
+      showNotification(`Dealt ${card.display} on ${side.toUpperCase()}`, 'success');
+    } catch (error) {
+      handleComponentError(error, 'dealCard');
+      showNotification('Error dealing card', 'error');
+      console.error('dealCard error:', error);
+    }
+  };
+
+  // ✅ FIX: Counter for unique bet IDs - NO BLOCKING
+  const betRequestCounterRef = useRef<number>(0);
+
+  const placeBet = async (side: BetSide, amount: number) => {
+    try {
+      // ✅ FIX: Validate gameId before sending bet
+      if (!gameState.gameId || gameState.gameId === 'default-game') {
+        console.error('❌ Cannot place bet: No valid gameId', {
+          gameId: gameState.gameId,
+          phase: gameState.phase,
+          round: gameState.currentRound
+        });
+        showNotification('Game session not ready. Please wait for admin to start the game.', 'error');
+        return;
+      }
+
+      // ✅ FIX: Generate unique betId with counter for every click
+      const betId = `temp-${Date.now()}-${++betRequestCounterRef.current}-${Math.random().toString(36).substr(2, 9)}`;
+
+      console.log('📝 Placing bet:', {
+        gameId: gameState.gameId,
+        side,
+        amount,
+        round: gameState.currentRound,
+        betId
+      });
+
+      // ✅ ANTI-FLICKER: Add to pending bets set
+      pendingBetsRef.current.add(betId);
+      console.log(`🔒 Bet added to pending set: ${betId} (total pending: ${pendingBetsRef.current.size})`);
+
+      // ⚡ INSTANT: Direct optimistic update (NO EVENT DISPATCH OVERHEAD)
+      // Calculate new totals immediately
+      const currentRoundBets = gameState.currentRound === 1 ? gameState.playerRound1Bets : gameState.playerRound2Bets;
+      const currentTotal = typeof currentRoundBets[side] === 'number' ? currentRoundBets[side] : 0;
+      const newTotal = currentTotal + amount;
+
+      // Update state directly
+      updatePlayerRoundBets(gameState.currentRound as 1 | 2, {
+        ...currentRoundBets,
+        [side]: newTotal
+      });
+
+      // Update balance immediately
+      const currentBalance = typeof gameState.playerWallet === 'number' ? gameState.playerWallet : 0;
+      updatePlayerWallet(currentBalance - amount);
+
+      // ✅ CRITICAL FIX: Add to bet history for undo functionality
+      addBetToHistory(gameState.currentRound as 1 | 2, side, {
+        amount,
+        betId,
+        timestamp: Date.now()
+      });
+
+      console.log(`⚡ INSTANT BET UPDATE: ${side} +₹${amount} = ₹${newTotal}, Balance: ₹${currentBalance - amount}`);
+      console.log(`📝 Added to bet history: Round ${gameState.currentRound}, ${side}, ₹${amount}, betId: ${betId}`);
+
+      // Add gameId to bet message (send to server in parallel)
+      sendWebSocketMessage({
+        type: 'place_bet',
+        data: {
+          gameId: gameState.gameId,
+          side,
+          amount,
+          round: gameState.currentRound,
+          betId, // Send betId to server for tracking
+        }
+      });
+    } catch (error) {
+      console.error('Failed to place bet:', error);
+      showNotification(
+        error instanceof Error ? error.message : 'Failed to place bet',
+        'error'
+      );
+    }
+  };
+
+  useEffect(() => {
+    const initializeWebSocket = async () => {
+      // Wait for auth to be checked before initializing WebSocket
+      if (!authState.authChecked) {
+        console.log('🔄 Waiting for auth check to complete before WebSocket init...');
+        return;
+      }
+
+      // Only connect if user is authenticated
+      if (!authState.isAuthenticated) {
+        console.log('⏸️ User not authenticated - disconnecting WebSocket');
+        setIsWebSocketAuthenticated(false);
+        webSocketManagerRef.current?.disconnect();
+        // ✅ FIX: Clean up global WebSocket context when disconnecting
+        delete (window as any).__wsContext;
+        return;
+      }
+
+      // If no token yet, wait for it
+      if (!authState.token) {
+        console.log('⏸️ No token available yet - waiting...');
+        return;
+      }
+
+      // If WebSocket is already connected, don't reconnect (WebSocketManager handles token updates automatically)
+      if (webSocketManagerRef.current && webSocketManagerRef.current.getStatus() !== ConnectionStatus.DISCONNECTED) {
+        console.log('✅ WebSocket already connected - token updates handled automatically');
+        return;
+      }
+
+      console.log('🚀 Initializing WebSocket with authenticated user:', authState.user?.role);
+      setIsWebSocketAuthenticated(false); // Reset auth state before connecting
+      initWebSocketManager();
+
+      // Connect and authenticate immediately with available token
+      webSocketManagerRef.current?.connect();
+    };
+
+    initializeWebSocket();
+
+    // Only disconnect on unmount or when authentication is lost
+    return () => {
+      if (!authState.isAuthenticated) {
+        console.log('🔌 Auth lost - disconnecting WebSocket on cleanup');
+        setIsWebSocketAuthenticated(false);
+        webSocketManagerRef.current?.disconnect();
+        // ✅ FIX: Clean up global WebSocket context
+        delete (window as any).__wsContext;
+      }
+    };
+  }, [authState.authChecked, authState.isAuthenticated, authState.token, initWebSocketManager]); // Depend on auth state
+
+  // ✅ FIX: Subscribe to game state immediately after WebSocket authentication
+  // ✅ FIX: Expose WebSocket in global context for VideoArea pause/play sync
+  useEffect(() => {
+    if (connectionStatus === ConnectionStatus.CONNECTED && isWebSocketAuthenticated && webSocketManagerRef.current) {
+      console.log('✅ WebSocket authenticated - subscribing to game state');
+
+      // ✅ CRITICAL FIX: Expose WebSocket in global context for components that need direct access
+      // This allows VideoArea to receive pause/play messages from admin
+      const ws = webSocketManagerRef.current.getWebSocket?.();
+      if (ws) {
+        (window as any).__wsContext = { ws };
+        console.log('✅ WebSocket exposed in global context for pause/play sync');
+      }
+
+      // ✅ FIX: Subscribe immediately (no delay) for faster state sync
+      const subscribeToGameState = () => {
+        sendWebSocketMessage({
+          type: 'game_subscribe',
+          data: {}
+        });
+
+        console.log('📡 Game state subscription sent');
+      };
+
+      // ✅ FIX: Subscribe immediately after auth, but also fetch via REST API as fallback
+      subscribeToGameState();
+
+      // ✅ FIX: Also fetch game state via REST API as fallback for faster sync
+      const fetchGameStateFallback = async () => {
+        try {
+          // Fetch current game state via REST API for immediate display
+          const response = await apiClient.get('/api/game/current-state');
+          if (response && response.phase && response.phase !== 'idle') {
+            console.log('📊 Fallback: Fetched game state via REST API:', response);
+            // Update state from REST API response
+            if (response.openingCard) {
+              const parsed = typeof response.openingCard === 'string' ? parseDisplayCard(response.openingCard) : response.openingCard;
+              setSelectedOpeningCard(parsed);
+            }
+            if (response.phase) setPhase(response.phase as any);
+            if (response.currentRound) setCurrentRound(response.currentRound as any);
+            if (response.timer !== undefined) setCountdown(response.timer);
+            if (response.bettingLocked !== undefined) setBettingLocked(response.bettingLocked);
+          }
+        } catch (error) {
+          console.error('⚠️ Fallback game state fetch failed (non-critical):', error);
+          // Non-critical, WebSocket subscription will handle it
+        }
+      };
+
+      // Fetch fallback state after a short delay
+      const fallbackTimer = setTimeout(fetchGameStateFallback, 100);
+
+      return () => clearTimeout(fallbackTimer);
+    } else if (connectionStatus === ConnectionStatus.DISCONNECTED) {
+      console.log('⏸️ WebSocket disconnected');
+      setIsWebSocketAuthenticated(false); // Reset auth state on disconnect
+    } else if (connectionStatus === ConnectionStatus.ERROR) {
+      console.error('❌ WebSocket connection error');
+      setIsWebSocketAuthenticated(false); // Reset auth state on error
+    }
+  }, [connectionStatus, isWebSocketAuthenticated, sendWebSocketMessage]);
+
+  const value: WebSocketContextType = {
+    sendWebSocketMessage,
+    startGame,
+    dealCard,
+    placeBet,
+    connectWebSocket,
+    disconnectWebSocket,
+    connectionStatus,
+  };
+
+  return (
+    <WebSocketContext.Provider value={value}>
+      {children}
+    </WebSocketContext.Provider>
+  );
+};
+
+export const useWebSocket = () => {
+  const context = useContext(WebSocketContext);
+  if (context === undefined) {
+    throw new Error('useWebSocket must be used within a WebSocketProvider');
+  }
+  return context;
+};

@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Build outputs
+dist/
+build/
+out/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Docker
+docker-compose.override.yml
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+postgres_data/
+redis_data/
+
+# Uploads
+uploads/
+temp/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# TypeScript
+*.tsbuildinfo
+
+# Misc
+.cache/
+*.pid
+*.seed
+*.pid.lock
+.npm/
+.eslintcache
+.node_repl_history
+.yarn-integrity
+
+# OvenMediaEngine logs
+ome_logs/
+
+# OS
+Thumbs.db
+.DS_Store

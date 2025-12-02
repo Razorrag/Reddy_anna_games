@@ -1,0 +1,368 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Royal Indian Theme - Global Styles */
+
+@layer base {
+  :root {
+    /* Shadcn UI variables mapped to royal theme */
+    --background: 210 60% 8%;        /* royal-dark */
+    --foreground: 48 100% 50%;       /* gold */
+    
+    --card: 225 35% 15%;             /* royal-medium */
+    --card-foreground: 48 100% 50%;  /* gold */
+    
+    --popover: 225 35% 15%;          /* royal-medium */
+    --popover-foreground: 48 100% 50%; /* gold */
+    
+    --primary: 48 100% 50%;          /* gold */
+    --primary-foreground: 210 60% 8%; /* royal-dark */
+    
+    --secondary: 225 30% 25%;        /* royal-light */
+    --secondary-foreground: 48 100% 50%; /* gold */
+    
+    --muted: 225 30% 25%;            /* royal-light */
+    --muted-foreground: 48 80% 70%;  /* light gold */
+    
+    --accent: 189 100% 50%;          /* neon-cyan */
+    --accent-foreground: 210 60% 8%; /* royal-dark */
+    
+    --destructive: 0 84% 60%;        /* red */
+    --destructive-foreground: 48 100% 50%; /* gold */
+    
+    --border: 225 30% 25%;           /* royal-light */
+    --input: 225 30% 25%;            /* royal-light */
+    --ring: 48 100% 50%;             /* gold */
+    
+    --radius: 0.75rem;
+    
+    /* Chart colors */
+    --chart-1: 48 100% 50%;          /* gold */
+    --chart-2: 189 100% 50%;         /* neon-cyan */
+    --chart-3: 16 100% 60%;          /* andar-orange */
+    --chart-4: 340 75% 40%;          /* earth-maroon */
+    --chart-5: 174 60% 40%;          /* earth-teal */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-royal-dark text-gold font-sans;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Custom scrollbar - Royal theme */
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-royal-medium;
+    border-radius: 6px;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gold/30;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gold/50;
+  }
+  
+  /* Selection color */
+  ::selection {
+    @apply bg-gold/30 text-gold;
+  }
+}
+
+@layer components {
+  /* Royal gradient backgrounds */
+  .bg-royal-gradient {
+    background: linear-gradient(135deg, #0A0E27 0%, #1A1F3A 50%, #2A3154 100%);
+  }
+  
+  .bg-gold-gradient {
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  }
+  
+  .bg-neon-gradient {
+    background: linear-gradient(135deg, #00F5FF 0%, #00E5FF 50%, #00D4FF 100%);
+  }
+  
+  /* Text with gold shimmer effect */
+  .text-gold-shimmer {
+    @apply bg-gold-gradient bg-clip-text text-transparent;
+    background-size: 200% auto;
+    animation: shimmer 3s linear infinite;
+  }
+  
+  /* Glowing text effects */
+  .text-glow-gold {
+    text-shadow: 
+      0 0 10px rgba(255, 215, 0, 0.5),
+      0 0 20px rgba(255, 215, 0, 0.3),
+      0 0 30px rgba(255, 215, 0, 0.2);
+  }
+  
+  .text-glow-cyan {
+    text-shadow: 
+      0 0 10px rgba(0, 245, 255, 0.6),
+      0 0 20px rgba(0, 245, 255, 0.4),
+      0 0 30px rgba(0, 245, 255, 0.2);
+  }
+  
+  /* Card with royal styling */
+  .card-royal {
+    @apply bg-royal-medium border border-gold/20 rounded-xl shadow-xl;
+    background: linear-gradient(135deg, rgba(26, 31, 58, 0.9) 0%, rgba(42, 49, 84, 0.9) 100%);
+    backdrop-filter: blur(10px);
+  }
+  
+  /* Button - Gold style */
+  .btn-gold {
+    @apply bg-gold-gradient text-royal-dark font-semibold py-3 px-6 rounded-lg;
+    @apply shadow-gold-glow hover:shadow-gold-glow-strong;
+    @apply transition-all duration-300;
+    @apply hover:scale-105 active:scale-95;
+  }
+  
+  /* Button - Neon Cyan style (for ANDAR/BAHAR) */
+  .btn-neon {
+    @apply bg-neon-gradient text-royal-dark font-bold py-4 px-8 rounded-xl;
+    @apply shadow-neon-cyan hover:shadow-neon-cyan-strong;
+    @apply transition-all duration-300;
+    @apply hover:scale-105 active:scale-95;
+    @apply animate-pulse-neon;
+  }
+  
+  /* Button - Andar style (warm orange) */
+  .btn-andar {
+    @apply bg-andar-gradient text-white font-bold py-4 px-8 rounded-xl;
+    @apply shadow-andar-glow;
+    @apply transition-all duration-300;
+    @apply hover:scale-105 active:scale-95;
+    @apply border-2 border-andar-glow;
+  }
+  
+  /* Button - Bahar style (cyan) */
+  .btn-bahar {
+    @apply bg-bahar-gradient text-royal-dark font-bold py-4 px-8 rounded-xl;
+    @apply shadow-bahar-glow;
+    @apply transition-all duration-300;
+    @apply hover:scale-105 active:scale-95;
+    @apply border-2 border-bahar-glow;
+  }
+  
+  /* Input fields - Royal theme */
+  .input-royal {
+    @apply bg-royal-medium border-2 border-gold/30 text-gold rounded-lg px-4 py-3;
+    @apply placeholder:text-gold/50;
+    @apply focus:border-gold focus:ring-2 focus:ring-gold/20;
+    @apply transition-all duration-300;
+  }
+  
+  /* Chip/Bet amount display */
+  .chip {
+    @apply inline-flex items-center justify-center;
+    @apply bg-gold-gradient text-royal-dark font-bold rounded-full;
+    @apply shadow-gold-glow;
+    @apply min-w-[60px] min-h-[60px];
+    @apply border-4 border-gold-shine;
+  }
+  
+  /* Playing card */
+  .playing-card {
+    @apply relative bg-white rounded-lg shadow-2xl;
+    @apply aspect-[2.5/3.5] w-20;
+    @apply transition-transform duration-300;
+    @apply hover:scale-110;
+  }
+  
+  /* Game table surface */
+  .game-table {
+    @apply bg-earth-brown rounded-2xl;
+    background: 
+      radial-gradient(circle at 50% 50%, rgba(107, 68, 35, 1) 0%, rgba(90, 56, 28, 1) 100%);
+    box-shadow: 
+      inset 0 2px 10px rgba(0, 0, 0, 0.5),
+      0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+  
+  /* Balance display */
+  .balance-display {
+    @apply flex items-center gap-2 bg-royal-medium px-6 py-3 rounded-full;
+    @apply border-2 border-gold/50;
+    @apply shadow-gold-glow;
+  }
+  
+  /* Timer countdown */
+  .timer-countdown {
+    @apply text-6xl font-black text-gold-shimmer;
+    @apply animate-pulse-gold;
+  }
+  
+  /* Winner announcement */
+  .winner-announce {
+    @apply text-4xl font-black text-gold-shimmer;
+    @apply animate-pulse-gold;
+    @apply drop-shadow-[0_0_30px_rgba(255,215,0,0.8)];
+  }
+  
+  /* Loading spinner - Gold */
+  .spinner-gold {
+    @apply border-4 border-gold/20 border-t-gold rounded-full;
+    @apply w-12 h-12 animate-spin;
+  }
+  
+  /* Notification badge */
+  .badge-notification {
+    @apply absolute -top-2 -right-2;
+    @apply bg-error text-white text-xs font-bold;
+    @apply rounded-full w-6 h-6 flex items-center justify-center;
+    @apply animate-pulse;
+  }
+  
+  /* Section divider with gold line */
+  .section-divider {
+    @apply relative my-8;
+  }
+  
+  .section-divider::before {
+    content: '';
+    @apply absolute left-0 right-0 top-1/2;
+    @apply h-[2px] bg-gradient-to-r from-transparent via-gold to-transparent;
+  }
+  
+  /* Pattern background for cards */
+  .pattern-dots {
+    background-image: radial-gradient(circle, rgba(255, 215, 0, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  
+  /* Mobile optimizations */
+  @media (max-width: 768px) {
+    .btn-neon,
+    .btn-andar,
+    .btn-bahar {
+      @apply py-3 px-6 text-sm;
+    }
+    
+    .playing-card {
+      @apply w-14;
+    }
+    
+    .timer-countdown {
+      @apply text-4xl;
+    }
+    
+    .winner-announce {
+      @apply text-2xl;
+    }
+  }
+}
+
+@layer utilities {
+  /* Glass morphism effect */
+  .glass {
+    background: rgba(26, 31, 58, 0.8);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  
+  /* Disable text selection (for game UI) */
+  .no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  /* Hide scrollbar but keep functionality */
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Animations */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+  
+  /* Gradient text animation */
+  @keyframes shimmer {
+    0% {
+      background-position: 0% center;
+    }
+    100% {
+      background-position: 200% center;
+    }
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes slideUp {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  
+  @keyframes scaleIn {
+    from {
+      transform: scale(0.9);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+}
+
+/* Print styles */
+@media print {
+  body {
+    @apply bg-white text-black;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+}

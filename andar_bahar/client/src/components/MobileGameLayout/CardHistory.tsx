@@ -1,0 +1,345 @@
+/**
+ * CardHistory - Recent game results display
+ * 
+ * Shows recent game results with opening card in circular badges
+ * Color: Red for Andar wins, Blue for Bahar wins
+ * Order: Right to left (newest on right)
+ * Clickable to show game details
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
+import { apiClient } from '@/lib/api-client';
+
+interface GameResult {
+  winner: string;
+  round: number;
+  gameId: string;
+  openingCard: string;
+  winningCard?: string;
+  totalBets?: number;
+  totalPayouts?: number;
+}
+
+interface CardHistoryProps {
+  gameState?: any; // Keep for compatibility (optional, not used)
+  onHistoryClick?: () => void; // ✅ CHANGED: Opens main history modal
+  onGameClick?: (gameId: string) => void; // ✅ NEW: Opens main history modal with specific game pre-selected
+  className?: string;
+}
+
+const CardHistory: React.FC<CardHistoryProps> = React.memo(({
+  onGameClick,
+  className = ''
+}) => {
+  const [recentResults, setRecentResults] = useState<GameResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [newGameIds, setNewGameIds] = useState<Set<string>>(new Set());
+  const previousGameIdsRef = useRef<Set<string>>(new Set());
+  const lastFetchTimeRef = useRef<number>(0);
+  // const [loadingDetails, setLoadingDetails] = useState(false);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      // ✅ FIX: Debounce fetches - minimum 2 seconds between fetches
+      const now = Date.now();
+      if (now - lastFetchTimeRef.current < 2000) {
+        console.log('[CardHistory] Fetch debounced, too soon since last fetch');
+        return;
+      }
+      lastFetchTimeRef.current = now;
+      
+      setLoading(true);
+      try {
+        console.log('[CardHistory] Fetching game history...');
+        // Use /api/game/history endpoint which returns an array directly
+        const response = await apiClient.get<any[]>('/api/game/history?limit=10');
+        console.log('[CardHistory] API response:', response);
+        console.log('[CardHistory] Response type:', typeof response);
+        console.log('[CardHistory] Is array:', Array.isArray(response));
+        
+        // Handle response - can be array directly or wrapped
+        let games: any[] = [];
+        if (Array.isArray(response)) {
+          // Direct array response from /api/game/history
+          games = response;
+          console.log('[CardHistory] Parsed as direct array, count:', games.length);
+        } else if (response && typeof response === 'object') {
+          // Handle wrapped responses (fallback)
+          console.log('[CardHistory] Response is object, checking nested properties...');
+          if (Array.isArray((response as any).data)) {
+            games = (response as any).data;
+            console.log('[CardHistory] Found games in response.data, count:', games.length);
+          } else if (Array.isArray((response as any).games)) {
+            games = (response as any).games;
+            console.log('[CardHistory] Found games in response.games, count:', games.length);
+          } else if ((response as any).success && (response as any).data?.games) {
+            games = (response as any).data.games;
+            console.log('[CardHistory] Found games in response.data.games, count:', games.length);
+          } else {
+            console.warn('[CardHistory] Unknown response format:', response);
+          }
+        }
+        
+        console.log('[CardHistory] Final games array length:', games.length);
+        
+        if (games.length > 0) {
+          // Transform API data to match component format
+          const formattedResults = games
+            .filter(game => {
+              const hasWinner = !!game.winner;
+              const hasOpeningCard = !!game.openingCard || !!game.opening_card;
+              if (!hasWinner) {
+                console.log('[CardHistory] Filtering out game without winner:', game);
+              }
+              if (!hasOpeningCard) {
+                console.log('[CardHistory] Filtering out game without opening card:', game);
+              }
+              return hasWinner && hasOpeningCard;
+            }) // Only show games with winners and opening cards
+            .map(game => ({
+              winner: (game.winner || '').toLowerCase(),
+              round: game.round || game.current_round || game.winning_round || 1,
+              gameId: game.gameId || game.game_id || game.id || `game-${Date.now()}-${Math.random()}`,
+              openingCard: game.openingCard || game.opening_card || '',
+              winningCard: game.winningCard || game.winning_card,
+              totalBets: game.totalBets || game.total_bets,
+              totalPayouts: game.totalPayouts || game.total_payouts
+            }))
+            .slice(0, 10); // Limit to 10 most recent
+          
+          console.log('[CardHistory] Formatted results count:', formattedResults.length);
+          console.log('[CardHistory] Formatted results:', formattedResults);
+          
+          // ✅ FIX: Only update if data actually changed
+          const currentGameIds = new Set(formattedResults.map(r => r.gameId));
+          const previousGameIds = previousGameIdsRef.current;
+          
+          // Check if game IDs are different
+          const hasChanges = 
+            currentGameIds.size !== previousGameIds.size ||
+            Array.from(currentGameIds).some(id => !previousGameIds.has(id));
+          
+          if (!hasChanges) {
+            console.log('[CardHistory] No changes detected, skipping update');
+            return;
+          }
+          
+          // Detect new games for animation
+          const newGames = new Set<string>();
+          currentGameIds.forEach(id => {
+            if (!previousGameIds.has(id)) {
+              newGames.add(id);
+            }
+          });
+          
+          if (newGames.size > 0) {
+            console.log('[CardHistory] New games detected:', Array.from(newGames));
+            setNewGameIds(newGames);
+            // Remove animation class after animation completes
+            setTimeout(() => setNewGameIds(new Set()), 1000);
+          }
+          
+          previousGameIdsRef.current = currentGameIds;
+          setRecentResults(formattedResults);
+        } else {
+          console.log('[CardHistory] No games found or empty array');
+          setRecentResults([]);
+        }
+      } catch (error: any) {
+        console.error('[CardHistory] Failed to load card history:', error);
+        console.error('[CardHistory] Error details:', error.message, error.stack);
+        // Set empty array on error to avoid showing mock data
+        setRecentResults([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHistory();
+    // No need for polling interval
+  }, []);
+
+  // Listen for real-time game history updates via WebSocket
+  useEffect(() => {
+    const handleGameHistoryUpdate = (event: CustomEvent) => {
+      console.log('[CardHistory] Real-time update received:', event.detail);
+      
+      // ✅ FIX: Debounce rapid updates to prevent multiple fetches
+      if (loading) {
+        console.log('[CardHistory] Already loading, skipping duplicate fetch');
+        return;
+      }
+      // Refresh history when new game completes
+      // We need to fetch again since we don't have access to fetchHistory here
+      // Trigger a re-render by calling the fetch in a separate effect
+      // Actually, let's just re-fetch directly
+      const fetchHistory = async () => {
+        try {
+          const response = await apiClient.get<any[]>('/api/game/history?limit=10');
+          let games: any[] = [];
+          if (Array.isArray(response)) {
+            games = response;
+          } else if (response && typeof response === 'object') {
+            if (Array.isArray((response as any).data)) {
+              games = (response as any).data;
+            } else if (Array.isArray((response as any).games)) {
+              games = (response as any).games;
+            } else if ((response as any).success && (response as any).data?.games) {
+              games = (response as any).data.games;
+            }
+          }
+          
+          if (games.length > 0) {
+            const formattedResults = games
+              .filter(game => !!game.winner && (!!game.openingCard || !!game.opening_card))
+              .map(game => ({
+                winner: (game.winner || '').toLowerCase(),
+                round: game.round || game.current_round || game.winning_round || 1,
+                gameId: game.gameId || game.game_id || game.id || `game-${Date.now()}-${Math.random()}`,
+                openingCard: game.openingCard || game.opening_card || '',
+                winningCard: game.winningCard || game.winning_card,
+                totalBets: game.totalBets || game.total_bets,
+                totalPayouts: game.totalPayouts || game.total_payouts
+              }))
+              .slice(0, 10);
+            
+            // ✅ FIX: Only update if data actually changed
+            const currentGameIds = new Set(formattedResults.map(r => r.gameId));
+            const previousGameIds = previousGameIdsRef.current;
+            
+            // Check if game IDs are different
+            const hasChanges = 
+              currentGameIds.size !== previousGameIds.size ||
+              Array.from(currentGameIds).some(id => !previousGameIds.has(id));
+            
+            if (!hasChanges) {
+              console.log('[CardHistory] WebSocket update: No changes detected, skipping');
+              return;
+            }
+            
+            // Detect new games for animation
+            const newGames = new Set<string>();
+            currentGameIds.forEach(id => {
+              if (!previousGameIds.has(id)) {
+                newGames.add(id);
+              }
+            });
+            
+            if (newGames.size > 0) {
+              setNewGameIds(newGames);
+              setTimeout(() => setNewGameIds(new Set()), 1000);
+            }
+            
+            previousGameIdsRef.current = currentGameIds;
+            setRecentResults(formattedResults);
+          }
+        } catch (error) {
+          console.error('[CardHistory] Failed to refresh on update:', error);
+        }
+      };
+      fetchHistory();
+    };
+
+    window.addEventListener('game_history_update', handleGameHistoryUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('game_history_update', handleGameHistoryUpdate as EventListener);
+    };
+  }, []);
+
+  // Debug logging for rendering
+  useEffect(() => {
+    console.log('[CardHistory] Rendering with results count:', recentResults.length);
+    console.log('[CardHistory] Loading state:', loading);
+  }, [recentResults.length, loading]);
+
+  // Extract card rank (number or face) without suit
+  const getCardRank = (card: string): string => {
+    if (!card) return '?';
+    // Card format is like "A♠", "K♥", "10♦", "7♣"
+    // Extract just the rank (everything before the suit symbol)
+    const rank = card.replace(/[♠♥♦♣]/g, '').trim();
+    return rank || '?';
+  };
+
+  // ✅ SIMPLIFIED: Just call parent callback to open main GameHistoryModal
+  const handleGameClick = (game: GameResult) => {
+    console.log('[CardHistory] Game clicked, opening main history modal:', game.gameId);
+    if (onGameClick) {
+      onGameClick(game.gameId);
+    }
+  };
+
+  return (
+    <div className={`flex items-center ${className}`}>
+      {/* Recent Results - Right to Left (newest on right) */}
+      <div className="flex items-center gap-2 flex-1">
+        {loading ? (
+          <div className="text-xs text-gray-500">Loading...</div>
+        ) : (
+          <div className="flex gap-2 flex-row-reverse overflow-hidden">
+            {/* flex-row-reverse makes newest appear on right */}
+            {recentResults.length > 0 ? (
+              recentResults.slice(0, 6).map((result, index) => {
+                const isNew = newGameIds.has(result.gameId);
+                return (
+                  <button
+                    key={result.gameId}
+                    onClick={() => handleGameClick(result)}
+                    className={`
+                      w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold
+                      shadow-lg
+                      cursor-pointer hover:scale-110 active:scale-95
+                      transition-all duration-300 ease-out
+                      ${isNew ? 'animate-slide-in-right' : ''}
+                      ${result.winner === 'andar' 
+                        ? 'bg-[#A52A2A] text-yellow-400 border-2 border-red-400 hover:border-red-300' 
+                        : 'bg-[#01073b] text-yellow-400 border-2 border-blue-400 hover:border-blue-300'
+                      }
+                    `}
+                    style={{
+                      animationDelay: isNew ? `${index * 50}ms` : '0ms'
+                    }}
+                    title={`Click to view game details | Opening: ${result.openingCard} | Winner: ${result.winner.toUpperCase()} | Round ${result.round}`}
+                  >
+                    {getCardRank(result.openingCard)}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="text-xs text-gray-500">No history yet</div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ✅ REMOVED: Modal UI - Now uses parent's GameHistoryModal instead */}
+      
+      {/* ✅ ADD: Inline styles for smooth animations */}
+      <style>{`
+        @keyframes slide-in-right {
+          0% {
+            transform: translateX(100%) scale(0.8);
+            opacity: 0;
+          }
+          60% {
+            transform: translateX(-5%) scale(1.05);
+            opacity: 1;
+          }
+          100% {
+            transform: translateX(0) scale(1);
+            opacity: 1;
+          }
+        }
+        
+        .animate-slide-in-right {
+          animation: slide-in-right 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+      `}</style>
+    </div>
+  );
+});
+
+export default CardHistory;
+
+// ✅ Memoization prevents unnecessary re-renders from parent

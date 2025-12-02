@@ -1,0 +1,416 @@
+import { Request, Response } from 'express';
+import { storage } from '../storage-supabase';
+
+/**
+ * GET /api/user/game-history
+ * Returns user's game history with correct calculations
+ */
+export const getUserGameHistory = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    const limit = parseInt(req.query.limit as string) || 20;
+    const offset = parseInt(req.query.offset as string) || 0;
+
+    const history = await storage.getUserGameHistory(req.user.id);
+    
+    // Apply pagination
+    const paginatedHistory = history.slice(offset, offset + limit);
+    const hasMore = history.length > offset + limit;
+
+    res.json({
+      success: true,
+      data: paginatedHistory,
+      pagination: {
+        limit,
+        offset,
+        hasMore
+      }
+    });
+  } catch (error: any) {
+    console.error('Get user game history error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve game history'
+    });
+  }
+};
+
+/**
+ * GET /api/user/analytics
+ * Returns user's net profit/loss and summary statistics
+ */
+export const getUserAnalytics = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    const user = await storage.getUser(req.user.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Get transaction totals
+    const transactionData = await storage.getUserTransactions(req.user.id, { limit: 1000 });
+    
+    let totalDeposits = 0;
+    let totalWithdrawals = 0;
+    
+    transactionData.transactions.forEach((tx: any) => {
+      if (tx.transaction_type === 'deposit') {
+        totalDeposits += parseFloat(tx.amount || '0');
+      } else if (tx.transaction_type === 'withdrawal') {
+        totalWithdrawals += parseFloat(tx.amount || '0');
+      }
+    });
+
+    // Get user stats from users table
+    const totalWinnings = parseFloat(String(user.total_winnings || '0'));
+    const totalLosses = parseFloat(String(user.total_losses || '0'));
+    const gamesPlayed = parseInt(String(user.games_played || '0'), 10);
+    const gamesWon = parseInt(String(user.games_won || '0'), 10);
+    
+    const netProfit = totalWinnings - totalLosses;
+
+    res.json({
+      success: true,
+      data: {
+        totalDeposits,
+        totalWithdrawals,
+        totalWins: totalWinnings,
+        totalLosses,
+        netProfit,
+        gamesPlayed,
+        gamesWon
+      }
+    });
+  } catch (error: any) {
+    console.error('Get user analytics error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve user analytics'
+    });
+  }
+};
+
+/**
+ * GET /api/user/bonus-summary
+ * Returns user's bonus summary
+ */
+export const getUserBonusSummary = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    const user = await storage.getUser(req.user.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // ✅ FIX: Calculate available from bonus tables instead of stale user fields
+    const depositBonuses = await storage.getDepositBonuses(req.user.id);
+    const referralBonuses = await storage.getReferralBonuses(req.user.id);
+
+    let depositUnlocked = 0;
+    let depositLocked = 0;
+    let depositCredited = 0;
+    let referralPending = 0;
+    let referralCredited = 0;
+    
+    // ✅ CRITICAL FIX: Track wagering progress for UI display
+    let totalWageringRequired = 0;
+    let totalWageringCompleted = 0;
+    let oldestLockedBonus: any = null;
+
+    // Sort by created_at ascending to find oldest locked bonus (FIFO)
+    const sortedDepositBonuses = [...depositBonuses].sort((a: any, b: any) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+
+    sortedDepositBonuses.forEach((bonus: any) => {
+      const amount = parseFloat(bonus.bonus_amount || '0');
+      if (bonus.status === 'unlocked') {
+        depositUnlocked += amount; // Ready to claim
+      } else if (bonus.status === 'locked') {
+        depositLocked += amount; // Still locked
+        totalWageringRequired += parseFloat(bonus.wagering_required || '0');
+        totalWageringCompleted += parseFloat(bonus.wagering_completed || '0');
+        // Track oldest locked bonus for detailed progress display
+        if (!oldestLockedBonus) {
+          oldestLockedBonus = bonus;
+        }
+      } else if (bonus.status === 'credited') {
+        depositCredited += amount; // Already credited
+      }
+    });
+
+    referralBonuses.forEach((bonus: any) => {
+      const amount = parseFloat(bonus.bonus_amount || '0');
+      if (bonus.status === 'pending') {
+        referralPending += amount; // Waiting for approval
+      } else if (bonus.status === 'credited') {
+        referralCredited += amount; // Already credited
+      }
+    });
+
+    // ✅ FIX: Calculate lifetime from actual bonus tables, not stale user field
+    const lifetimeFromTables = depositUnlocked + depositLocked + depositCredited + referralPending + referralCredited;
+    const totalBonusEarned = Math.max(parseFloat(user.total_bonus_earned || '0'), lifetimeFromTables);
+
+    // ✅ FIX: Include locked bonuses in available (they're still "available" just locked)
+    // This ensures the UI shows the total bonus amount the user has
+    const totalAvailable = depositUnlocked + depositLocked + referralPending;
+    
+    // ✅ CRITICAL FIX: Calculate overall wagering progress percentage
+    const wageringProgress = totalWageringRequired > 0 
+      ? Math.min(100, (totalWageringCompleted / totalWageringRequired) * 100)
+      : 0;
+
+    res.json({
+      success: true,
+      data: {
+        totals: {
+          // ✅ FIX: Show all non-credited bonuses as "available" (includes locked)
+          available: totalAvailable,
+          credited: depositCredited + referralCredited,
+          lifetime: totalBonusEarned
+        },
+        depositBonuses: {
+          unlocked: depositUnlocked,
+          locked: depositLocked,
+          credited: depositCredited,
+          total: depositUnlocked + depositLocked + depositCredited
+        },
+        referralBonuses: {
+          pending: referralPending,
+          credited: referralCredited,
+          total: referralPending + referralCredited
+        },
+        // ✅ NEW: Wagering progress info for UI
+        wagering: {
+          required: totalWageringRequired,
+          completed: totalWageringCompleted,
+          progress: wageringProgress,
+          hasLockedBonuses: depositLocked > 0,
+          // Details of oldest locked bonus (FIFO - this is what user is currently working on)
+          currentBonus: oldestLockedBonus ? {
+            id: oldestLockedBonus.id,
+            amount: parseFloat(oldestLockedBonus.bonus_amount || '0'),
+            depositAmount: parseFloat(oldestLockedBonus.deposit_amount || '0'),
+            wageringRequired: parseFloat(oldestLockedBonus.wagering_required || '0'),
+            wageringCompleted: parseFloat(oldestLockedBonus.wagering_completed || '0'),
+            progress: parseFloat(oldestLockedBonus.wagering_progress || '0'),
+            createdAt: oldestLockedBonus.created_at
+          } : null
+        }
+      }
+    });
+  } catch (error: any) {
+    console.error('Get user bonus summary error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve bonus summary'
+    });
+  }
+};
+
+/**
+ * GET /api/user/deposit-bonuses
+ * Returns user's deposit bonuses
+ */
+export const getUserDepositBonuses = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    const bonuses = await storage.getDepositBonuses(req.user.id);
+    
+    const formattedBonuses = bonuses.map((bonus: any) => ({
+      id: bonus.id,
+      depositAmount: parseFloat(bonus.deposit_amount || '0'),
+      bonusAmount: parseFloat(bonus.bonus_amount || '0'),
+      bonusPercentage: parseFloat(bonus.bonus_percentage || '0'),
+      wageringRequired: parseFloat(bonus.wagering_required || '0'),
+      wageringCompleted: parseFloat(bonus.wagering_completed || '0'),
+      status: bonus.status,
+      createdAt: bonus.created_at,
+      unlockedAt: bonus.unlocked_at,
+      creditedAt: bonus.credited_at
+    }));
+
+    res.json({
+      success: true,
+      data: formattedBonuses
+    });
+  } catch (error: any) {
+    console.error('Get user deposit bonuses error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve deposit bonuses'
+    });
+  }
+};
+
+/**
+ * GET /api/user/referral-bonuses
+ * Returns user's referral bonuses
+ */
+export const getUserReferralBonuses = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    const bonuses = await storage.getReferralBonuses(req.user.id);
+    
+    const formattedBonuses = bonuses.map((bonus: any) => ({
+      id: bonus.id,
+      depositAmount: parseFloat(bonus.deposit_amount || '0'),
+      bonusAmount: parseFloat(bonus.bonus_amount || '0'),
+      status: bonus.status,
+      createdAt: bonus.created_at,
+      creditedAt: bonus.credited_at
+    }));
+
+    res.json({
+      success: true,
+      data: formattedBonuses
+    });
+  } catch (error: any) {
+    console.error('Get user referral bonuses error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve referral bonuses'
+    });
+  }
+};
+
+/**
+ * GET /api/user/bonus-transactions
+ * Returns user's bonus transaction history
+ */
+export const getUserBonusTransactions = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    const limit = parseInt(req.query.limit as string, 10) || 20;
+    const offset = parseInt(req.query.offset as string, 10) || 0;
+
+    const transactions = await storage.getBonusTransactions(req.user.id, { limit, offset });
+    const hasMore = transactions.length === limit;
+
+    res.json({
+      success: true,
+      data: transactions,
+      hasMore
+    });
+  } catch (error: any) {
+    console.error('Get user bonus transactions error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve bonus transactions'
+    });
+  }
+};
+
+/**
+ * GET /api/user/referral-data
+ * Returns user's referral code and referred users information
+ */
+export const getUserReferralData = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    const user = await storage.getUser(req.user.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Get referral code for this user
+    const referralCode = user.referral_code_generated || '';
+    
+    // Get users referred by this user
+    const referredUsers = await storage.getUsersReferredBy(req.user.id);
+    
+    // Calculate totals
+    const totalReferrals = referredUsers.length;
+    const totalReferralEarnings = referredUsers.reduce((sum, u) => {
+      return sum + parseFloat(String(u.bonusEarned || '0'));
+    }, 0);
+
+    // ✅ DEBUG: Log what we're returning
+    console.log('🔍 DEBUG getUserReferralData for user:', req.user.id);
+    console.log('🔍 DEBUG referredUsers:', referredUsers);
+    console.log('🔍 DEBUG totalReferrals:', totalReferrals);
+    console.log('🔍 DEBUG totalReferralEarnings:', totalReferralEarnings);
+
+    const responseData = {
+      success: true,
+      data: {
+        referralCode,
+        totalReferrals,
+        totalReferralEarnings,
+        referredUsers: referredUsers.map(u => ({
+          id: u.id,
+          phone: u.phone,
+          fullName: u.full_name,
+          createdAt: u.created_at,
+          hasDeposited: u.hasDeposited || false,
+          bonusEarned: parseFloat(String(u.bonusEarned || '0')),
+          bonusStatus: u.bonusStatus || 'pending'
+        }))
+      }
+    };
+    
+    console.log('🔍 DEBUG Final API response:', responseData);
+    res.json(responseData);
+  } catch (error: any) {
+    console.error('Get user referral data error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve referral data'
+    });
+  }
+};
+
+// NOTE: Manual bonus claiming has been removed - bonuses are now auto-credited
+// based on gameplay and balance thresholds. No manual claim endpoint needed.
