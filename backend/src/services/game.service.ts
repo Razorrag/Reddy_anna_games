@@ -1,9 +1,8 @@
 import { db } from '../db';
 import { games, gameRounds, bets, gameHistory, gameStatistics } from '../db/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, gte, lte } from 'drizzle-orm';
 import { AppError } from '../middleware/errorHandler';
 
-// Card suits and ranks
 const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 
@@ -14,32 +13,25 @@ interface Card {
 }
 
 export class GameService {
-  // Create a shuffled deck of cards
   private createDeck(): Card[] {
     const deck: Card[] = [];
     for (const suit of SUITS) {
       for (const rank of RANKS) {
-        deck.push({
-          suit,
-          rank,
-          display: `${rank}${suit}`,
-        });
+        deck.push({ suit, rank, display: `${rank}${suit}` });
       }
     }
     return this.shuffleDeck(deck);
   }
 
-  // Fisher-Yates shuffle algorithm
   private shuffleDeck(deck: Card[]): Card[] {
     const shuffled = [...deck];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
     }
     return shuffled;
   }
 
-  // Get active game
   async getActiveGame(gameId?: string) {
     let game;
     
@@ -47,15 +39,14 @@ export class GameService {
       game = await db.query.games.findFirst({
         where: and(
           eq(games.id, gameId),
-          eq(games.isActive, true)
+          eq(games.status, 'active')
         ),
       });
     } else {
-      // Get the default Andar Bahar game
       game = await db.query.games.findFirst({
         where: and(
           eq(games.name, 'Andar Bahar'),
-          eq(games.isActive, true)
+          eq(games.status, 'active')
         ),
       });
     }
@@ -67,7 +58,6 @@ export class GameService {
     return game;
   }
 
-  // Get current round for a game
   async getCurrentRound(gameId: string) {
     const round = await db.query.gameRounds.findFirst({
       where: and(
@@ -80,21 +70,18 @@ export class GameService {
     return round;
   }
 
-  // Create a new round
   async createNewRound(gameId: string) {
-    const game = await this.getActiveGame(gameId);
+    await this.getActiveGame(gameId);
     
-    // Get the last round number
     const lastRound = await db.query.gameRounds.findFirst({
       where: eq(gameRounds.gameId, gameId),
       orderBy: [desc(gameRounds.roundNumber)],
     });
 
     const newRoundNumber = (lastRound?.roundNumber || 0) + 1;
-    
-    // Create deck and draw joker card
     const deck = this.createDeck();
-    const jokerCard = deck[0];
+    const jokerCard = deck[0]!;
+    const bettingDuration = 30; // 30 seconds default
 
     const [newRound] = await db.insert(gameRounds).values({
       gameId,
@@ -103,42 +90,36 @@ export class GameService {
       jokerCard: jokerCard.display,
       totalAndarBets: '0.00',
       totalBaharBets: '0.00',
-      totalBets: 0,
-      bettingEndsAt: new Date(Date.now() + game.bettingDuration * 1000),
+      totalBetAmount: '0.00',
+      totalPayoutAmount: '0.00',
+      bettingStartTime: new Date(),
+      bettingEndTime: new Date(Date.now() + bettingDuration * 1000),
+      startTime: new Date(),
     }).returning();
 
     return newRound;
   }
 
-  // Start round (open betting)
   async startRound(roundId: string) {
     const [round] = await db
       .update(gameRounds)
-      .set({
-        status: 'betting',
-        updatedAt: new Date(),
-      })
+      .set({ status: 'betting' })
       .where(eq(gameRounds.id, roundId))
       .returning();
 
     return round;
   }
 
-  // Close betting for a round
   async closeBetting(roundId: string) {
     const [round] = await db
       .update(gameRounds)
-      .set({
-        status: 'in_progress',
-        updatedAt: new Date(),
-      })
+      .set({ status: 'playing' })
       .where(eq(gameRounds.id, roundId))
       .returning();
 
     return round;
   }
 
-  // Deal cards and determine winner
   async dealCardsAndDetermineWinner(roundId: string) {
     const round = await db.query.gameRounds.findFirst({
       where: eq(gameRounds.id, roundId),
@@ -148,234 +129,212 @@ export class GameService {
       throw new AppError('Round not found', 404);
     }
 
-    if (round.status !== 'in_progress') {
+    if (round.status !== 'playing') {
       throw new AppError('Round is not in progress', 400);
     }
 
-    // Create a fresh deck and remove joker card
     const deck = this.createDeck();
-    const jokerCard = round.jokerCard!;
-    const jokerRank = jokerCard.substring(0, jokerCard.length - 1);
-
-    // Remove the joker card from deck
-    const filteredDeck = deck.filter(card => card.display !== jokerCard);
+    const jokerRank = round.jokerCard?.replace(/[♠♥♦♣]/g, '') || '';
     
-    // Simulate dealing cards alternately to Andar and Bahar
-    let winningSide: 'andar' | 'bahar' | null = null;
-    let cardsDealt = 0;
-    const maxCards = 52; // Prevent infinite loop
-
-    // First card goes to Andar
+    let winningSide: 'andar' | 'bahar' = 'andar';
     let currentSide: 'andar' | 'bahar' = 'andar';
+    let winningCard: Card | null = null;
+    const cardsDealt: { side: string; card: string }[] = [];
 
-    for (let i = 0; i < filteredDeck.length && i < maxCards; i++) {
-      const card = filteredDeck[i];
-      cardsDealt++;
+    for (let i = 1; i < deck.length; i++) {
+      const card = deck[i]!;
+      cardsDealt.push({ side: currentSide, card: card.display });
 
-      // Check if this card matches the joker rank
       if (card.rank === jokerRank) {
         winningSide = currentSide;
+        winningCard = card;
         break;
       }
 
-      // Alternate between Andar and Bahar
       currentSide = currentSide === 'andar' ? 'bahar' : 'andar';
     }
 
-    if (!winningSide) {
-      throw new AppError('Failed to determine winner', 500);
-    }
-
-    // Update round with result
     const [updatedRound] = await db
       .update(gameRounds)
       .set({
         status: 'completed',
         winningSide,
-        cardsDealt,
-        endedAt: new Date(),
-        updatedAt: new Date(),
+        winningCard: winningCard?.display,
+        endTime: new Date(),
       })
       .where(eq(gameRounds.id, roundId))
       .returning();
 
-    return updatedRound;
-  }
-
-  // Get round statistics
-  async getRoundStatistics(roundId: string) {
-    const round = await db.query.gameRounds.findFirst({
-      where: eq(gameRounds.id, roundId),
-    });
-
-    if (!round) {
-      throw new AppError('Round not found', 404);
-    }
-
-    // Get all bets for this round
-    const roundBets = await db.query.bets.findMany({
-      where: eq(bets.roundId, roundId),
-    });
-
-    const totalAndarBets = roundBets
-      .filter(bet => bet.betSide === 'andar')
-      .reduce((sum, bet) => sum + parseFloat(bet.amount), 0);
-
-    const totalBaharBets = roundBets
-      .filter(bet => bet.betSide === 'bahar')
-      .reduce((sum, bet) => sum + parseFloat(bet.amount), 0);
-
     return {
-      roundId,
-      roundNumber: round.roundNumber,
-      totalBets: roundBets.length,
-      totalAndarBets,
-      totalBaharBets,
-      totalAmount: totalAndarBets + totalBaharBets,
-      status: round.status,
-      winningSide: round.winningSide,
+      round: updatedRound,
+      winningSide,
+      winningCard: winningCard?.display,
+      cardsDealt,
     };
   }
 
-  // Save round to history
-  async saveRoundToHistory(roundId: string) {
+  async processPayouts(roundId: string) {
     const round = await db.query.gameRounds.findFirst({
       where: eq(gameRounds.id, roundId),
-      with: {
-        game: true,
-      },
     });
 
-    if (!round) {
-      throw new AppError('Round not found', 404);
+    if (!round || !round.winningSide) {
+      throw new AppError('Round not complete', 400);
     }
 
-    // Get all bets for this round
     const roundBets = await db.query.bets.findMany({
       where: eq(bets.roundId, roundId),
     });
 
-    const totalPlayers = new Set(roundBets.map(bet => bet.userId)).size;
-    const totalBetsAmount = roundBets.reduce((sum, bet) => sum + parseFloat(bet.amount), 0);
-    const totalPayouts = roundBets
-      .filter(bet => bet.status === 'won')
-      .reduce((sum, bet) => sum + parseFloat(bet.payout || '0'), 0);
+    let totalPayouts = 0;
 
-    // Save to history
-    const [history] = await db.insert(gameHistory).values({
-      gameId: round.gameId,
-      roundId: round.id,
-      roundNumber: round.roundNumber,
-      jokerCard: round.jokerCard!,
-      winningSide: round.winningSide!,
-      cardsDealt: round.cardsDealt!,
-      totalBets: roundBets.length,
-      totalPlayers,
-      totalBetsAmount: totalBetsAmount.toFixed(2),
-      totalPayouts: totalPayouts.toFixed(2),
-      playedAt: round.endedAt!,
-    }).returning();
+    for (const bet of roundBets) {
+      const betAmount = parseFloat(bet.amount);
+      let payout = 0;
+      let status: 'won' | 'lost' = 'lost';
 
-    return history;
+      if (bet.betSide === round.winningSide) {
+        payout = betAmount * 2;
+        status = 'won';
+        totalPayouts += payout;
+
+        await db.update(bets).set({
+          status: 'won',
+          payoutAmount: payout.toFixed(2),
+        }).where(eq(bets.id, bet.id));
+
+        await db.update(users).set({
+          balance: sql`balance + ${payout}`,
+        }).where(eq(users.id, bet.userId));
+      } else {
+        await db.update(bets).set({
+          status: 'lost',
+          payoutAmount: '0.00',
+        }).where(eq(bets.id, bet.id));
+      }
+
+      await db.insert(gameHistory).values({
+        userId: bet.userId,
+        gameId: round.gameId,
+        roundId: round.id,
+        betId: bet.id,
+        roundNumber: round.roundNumber,
+        betSide: bet.betSide,
+        betAmount: bet.amount,
+        result: status,
+        payoutAmount: payout.toFixed(2),
+        jokerCard: round.jokerCard,
+        winningCard: round.winningCard,
+      });
+    }
+
+    await db.update(gameRounds).set({
+      totalPayoutAmount: totalPayouts.toFixed(2),
+    }).where(eq(gameRounds.id, roundId));
+
+    return { totalPayouts, betsProcessed: roundBets.length };
   }
 
-  // Update game statistics
   async updateGameStatistics(gameId: string, roundId: string) {
     const round = await db.query.gameRounds.findFirst({
       where: eq(gameRounds.id, roundId),
     });
 
-    if (!round) {
-      throw new AppError('Round not found', 404);
-    }
+    if (!round) return;
 
-    // Get all bets for this round
-    const roundBets = await db.query.bets.findMany({
-      where: eq(bets.roundId, roundId),
-    });
-
-    const totalPlayers = new Set(roundBets.map(bet => bet.userId)).size;
-    const totalBetsAmount = roundBets.reduce((sum, bet) => sum + parseFloat(bet.amount), 0);
-    const totalPayouts = roundBets
-      .filter(bet => bet.status === 'won')
-      .reduce((sum, bet) => sum + parseFloat(bet.payout || '0'), 0);
-
-    const winningBets = roundBets.filter(bet => bet.status === 'won').length;
-    const losingBets = roundBets.filter(bet => bet.status === 'lost').length;
-
-    // Check if statistics exist for current month
-    const currentDate = new Date();
-    const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     const existingStats = await db.query.gameStatistics.findFirst({
       where: and(
         eq(gameStatistics.gameId, gameId),
-        sql`${gameStatistics.periodStart} >= ${monthStart}`,
-        sql`${gameStatistics.periodEnd} <= ${monthEnd}`
+        eq(gameStatistics.date, today)
       ),
     });
 
+    const roundBets = await db.query.bets.findMany({
+      where: eq(bets.roundId, roundId),
+    });
+
+    const uniquePlayers = new Set(roundBets.map(b => b.userId)).size;
+    const totalBetAmount = parseFloat(round.totalBetAmount);
+    const totalPayoutAmount = parseFloat(round.totalPayoutAmount);
+    const revenue = totalBetAmount - totalPayoutAmount;
+
     if (existingStats) {
-      // Update existing statistics
-      await db
-        .update(gameStatistics)
-        .set({
-          totalRounds: existingStats.totalRounds + 1,
-          totalBets: existingStats.totalBets + roundBets.length,
-          totalPlayers: existingStats.totalPlayers + totalPlayers,
-          totalWagered: (parseFloat(existingStats.totalWagered) + totalBetsAmount).toFixed(2),
-          totalPayouts: (parseFloat(existingStats.totalPayouts) + totalPayouts).toFixed(2),
-          averageBetSize: ((parseFloat(existingStats.totalWagered) + totalBetsAmount) / (existingStats.totalBets + roundBets.length)).toFixed(2),
-          winRate: (((existingStats.totalBets * parseFloat(existingStats.winRate) / 100) + winningBets) / (existingStats.totalBets + roundBets.length) * 100).toFixed(2),
-        })
-        .where(eq(gameStatistics.id, existingStats.id));
+      await db.update(gameStatistics).set({
+        totalRounds: sql`${gameStatistics.totalRounds} + 1`,
+        totalBets: sql`${gameStatistics.totalBets} + ${roundBets.length}`,
+        totalBetAmount: sql`${gameStatistics.totalBetAmount} + ${totalBetAmount}`,
+        totalPayoutAmount: sql`${gameStatistics.totalPayoutAmount} + ${totalPayoutAmount}`,
+        totalPlayers: sql`${gameStatistics.totalPlayers} + ${uniquePlayers}`,
+        revenue: sql`${gameStatistics.revenue} + ${revenue}`,
+      }).where(eq(gameStatistics.id, existingStats.id));
     } else {
-      // Create new statistics for this month
       await db.insert(gameStatistics).values({
         gameId,
-        periodStart: monthStart,
-        periodEnd: monthEnd,
+        date: today,
         totalRounds: 1,
         totalBets: roundBets.length,
-        totalPlayers,
-        totalWagered: totalBetsAmount.toFixed(2),
-        totalPayouts: totalPayouts.toFixed(2),
-        averageBetSize: (totalBetsAmount / roundBets.length).toFixed(2),
-        winRate: ((winningBets / roundBets.length) * 100).toFixed(2),
+        totalBetAmount: totalBetAmount.toFixed(2),
+        totalPayoutAmount: totalPayoutAmount.toFixed(2),
+        totalPlayers: uniquePlayers,
+        revenue: revenue.toFixed(2),
       });
     }
   }
 
-  // Get game history
-  async getGameHistory(gameId: string, limit: number = 50, offset: number = 0) {
-    const history = await db.query.gameHistory.findMany({
-      where: eq(gameHistory.gameId, gameId),
-      orderBy: [desc(gameHistory.playedAt)],
+  async getGameHistory(gameId: string, limit: number = 50) {
+    const rounds = await db.query.gameRounds.findMany({
+      where: eq(gameRounds.gameId, gameId),
+      orderBy: [desc(gameRounds.createdAt)],
       limit,
-      offset,
     });
 
-    return history;
+    return rounds;
   }
 
-  // Get game statistics for a period
   async getGameStatistics(gameId: string, startDate?: Date, endDate?: Date) {
-    let query = db.query.gameStatistics.findMany({
-      where: eq(gameStatistics.gameId, gameId),
-      orderBy: [desc(gameStatistics.periodStart)],
-    });
-
-    const stats = await query;
+    let whereClause = eq(gameStatistics.gameId, gameId);
 
     if (startDate && endDate) {
-      return stats.filter(stat => 
-        stat.periodStart >= startDate && stat.periodEnd <= endDate
-      );
+      whereClause = and(
+        eq(gameStatistics.gameId, gameId),
+        gte(gameStatistics.date, startDate),
+        lte(gameStatistics.date, endDate)
+      ) as any;
     }
+
+    const stats = await db.query.gameStatistics.findMany({
+      where: whereClause,
+      orderBy: [desc(gameStatistics.date)],
+    });
 
     return stats;
   }
+
+  async getAllGames() {
+    const allGames = await db.query.games.findMany({
+      orderBy: [games.name],
+    });
+
+    return allGames;
+  }
+
+  async getRoundById(roundId: string) {
+    const round = await db.query.gameRounds.findFirst({
+      where: eq(gameRounds.id, roundId),
+    });
+
+    if (!round) {
+      throw new AppError('Round not found', 404);
+    }
+
+    return round;
+  }
 }
+
+// Import users for payout processing
+import { users } from '../db/schema';
 
 export const gameService = new GameService();

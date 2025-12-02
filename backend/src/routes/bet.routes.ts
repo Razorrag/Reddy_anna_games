@@ -37,15 +37,18 @@ router.post('/undo', asyncHandler(async (req: Request, res: Response) => {
       eq(bets.userId, userId),
       eq(bets.status, 'pending')
     ),
-    orderBy: [desc(bets.placedAt)],
-    with: { round: true }
+    orderBy: [desc(bets.createdAt)]
   });
   
   if (!lastBet) {
     throw new AppError('No bet to undo', 404);
   }
   
-  if (lastBet.round.status !== 'betting') {
+  // Check if round is still in betting phase
+  const round = await db.query.gameRounds.findFirst({
+    where: eq(gameRounds.id, lastBet.roundId)
+  });
+  if (!round || round.status !== 'betting') {
     throw new AppError('Cannot undo bet after betting closes', 400);
   }
   
@@ -116,7 +119,7 @@ router.get('/last-round/:gameId', asyncHandler(async (req: Request, res: Respons
       eq(gameRounds.gameId, gameId),
       eq(gameRounds.status, 'completed')
     ),
-    orderBy: [desc(gameRounds.endedAt)]
+    orderBy: [desc(gameRounds.endTime)]
   });
   
   if (!lastRound) {

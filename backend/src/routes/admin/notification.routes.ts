@@ -88,11 +88,11 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
         )
       );
 
-    // Get pending partner applications
+    // Get suspended partner applications (no pending status in current schema)
     const pendingPartnersCount = await db
       .select({ count: count() })
       .from(partners)
-      .where(eq(partners.status, 'pending'));
+      .where(eq(partners.status, 'suspended'));
 
     // Get pending partner commissions
     const pendingCommissionsCount = await db

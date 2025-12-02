@@ -250,7 +250,7 @@ export class AdminController {
       }
       
       if (gameType) {
-        conditions.push(eq(games.gameType, gameType as any));
+        conditions.push(eq(games.name, gameType as any));
       }
 
       const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -449,7 +449,6 @@ export class AdminController {
         .update(transactions)
         .set({
           status,
-          updatedAt: new Date(),
         })
         .where(eq(transactions.id, id))
         .returning();

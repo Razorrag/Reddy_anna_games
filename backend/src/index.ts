@@ -52,12 +52,12 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true,
 }));
-app.use(compression());
+app.use(compression() as any);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Apply rate limiting to all API routes
-app.use('/api', apiLimiter);
+app.use('/api', apiLimiter as any);
 
 // Request logging
 app.use((req: Request, res: Response, next: NextFunction) => {

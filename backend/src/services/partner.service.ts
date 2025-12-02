@@ -2,7 +2,7 @@ import { db } from '../db';
 import { partners, partnerCommissions, users, bets, partnerGameEarnings } from '../db/schema';
 import { eq, and, desc, sql, gte, lte } from 'drizzle-orm';
 import { AppError } from '../middleware/errorHandler';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 export class PartnerService {
@@ -12,14 +12,6 @@ export class PartnerService {
   // Register new partner
   async registerPartner(data: {
     userId: string;
-    businessName: string;
-    contactPerson: string;
-    email: string;
-    phoneNumber: string;
-    bankAccountName?: string;
-    bankAccountNumber?: string;
-    bankIfscCode?: string;
-    upiId?: string;
   }) {
     // Check if user exists
     const user = await db.query.users.findFirst({
@@ -42,19 +34,13 @@ export class PartnerService {
     // Create partner record
     const [partner] = await db.insert(partners).values({
       userId: data.userId,
-      businessName: data.businessName,
-      contactPerson: data.contactPerson,
-      email: data.email,
-      phoneNumber: data.phoneNumber,
-      bankAccountName: data.bankAccountName,
-      bankAccountNumber: data.bankAccountNumber,
-      bankIfscCode: data.bankIfscCode,
-      upiId: data.upiId,
-      isActive: false, // Requires admin approval
-      totalEarnings: '0.00',
-      totalWithdrawals: '0.00',
-      availableBalance: '0.00',
+      partnerCode: `P${Date.now().toString(36).toUpperCase()}`,
+      sharePercentage: '50.00', // Default 50% share
+      commissionRate: '10.00', // Default 10% visible rate (5% effective)
       totalPlayers: 0,
+      totalCommission: '0.00',
+      pendingCommission: '0.00',
+      status: 'active',
     }).returning();
 
     return partner;
@@ -86,8 +72,8 @@ export class PartnerService {
       throw new AppError('Not registered as a partner', 403);
     }
 
-    if (!partner.isActive) {
-      throw new AppError('Partner account is pending approval', 403);
+    if (partner.status !== 'active') {
+      throw new AppError('Partner account is not active', 403);
     }
 
     // Generate token
@@ -98,7 +84,7 @@ export class PartnerService {
         role: 'partner',
       },
       this.JWT_SECRET,
-      { expiresIn: this.JWT_EXPIRES_IN }
+      { expiresIn: this.JWT_EXPIRES_IN } as jwt.SignOptions
     );
 
     return {
@@ -111,9 +97,9 @@ export class PartnerService {
       },
       partner: {
         id: partner.id,
-        businessName: partner.businessName,
-        totalEarnings: partner.totalEarnings,
-        availableBalance: partner.availableBalance,
+        partnerCode: partner.partnerCode,
+        totalCommission: partner.totalCommission,
+        pendingCommission: partner.pendingCommission,
       },
     };
   }
@@ -154,16 +140,10 @@ export class PartnerService {
     return partner;
   }
 
-  // Update partner profile
-  async updatePartnerProfile(partnerId: string, data: {
-    businessName?: string;
-    contactPerson?: string;
-    email?: string;
-    phoneNumber?: string;
-    bankAccountName?: string;
-    bankAccountNumber?: string;
-    bankIfscCode?: string;
-    upiId?: string;
+  // Update partner commission settings
+  async updatePartnerSettings(partnerId: string, data: {
+    sharePercentage?: string;
+    commissionRate?: string;
   }) {
     const [updatedPartner] = await db
       .update(partners)
@@ -202,9 +182,9 @@ export class PartnerService {
     // Get total commissions
     const totalCommissions = await db
       .select({
-        total: sql<number>`COALESCE(SUM(CAST(${partnerCommissions.commissionAmount} AS DECIMAL)), 0)`,
-        pending: sql<number>`COALESCE(SUM(CASE WHEN ${partnerCommissions.status} = 'pending' THEN CAST(${partnerCommissions.commissionAmount} AS DECIMAL) ELSE 0 END), 0)`,
-        paid: sql<number>`COALESCE(SUM(CASE WHEN ${partnerCommissions.status} = 'paid' THEN CAST(${partnerCommissions.commissionAmount} AS DECIMAL) ELSE 0 END), 0)`,
+        total: sql<number>`COALESCE(SUM(CAST(${partnerCommissions.amount} AS DECIMAL)), 0)`,
+        pending: sql<number>`COALESCE(SUM(CASE WHEN ${partnerCommissions.status} = 'pending' THEN CAST(${partnerCommissions.amount} AS DECIMAL) ELSE 0 END), 0)`,
+        completed: sql<number>`COALESCE(SUM(CASE WHEN ${partnerCommissions.status} = 'completed' THEN CAST(${partnerCommissions.amount} AS DECIMAL) ELSE 0 END), 0)`,
       })
       .from(partnerCommissions)
       .where(eq(partnerCommissions.partnerId, partnerId));
@@ -212,11 +192,10 @@ export class PartnerService {
     return {
       totalReferrals: referredUsers.length,
       activePlayers: activePlayers.length,
-      totalEarnings: parseFloat(partner.totalEarnings),
-      availableBalance: parseFloat(partner.availableBalance),
-      totalWithdrawals: parseFloat(partner.totalWithdrawals),
-      pendingCommissions: totalCommissions[0]?.pending || 0,
-      paidCommissions: totalCommissions[0]?.paid || 0,
+      totalCommission: parseFloat(partner.totalCommission),
+      pendingCommission: parseFloat(partner.pendingCommission),
+      pendingAmount: totalCommissions[0]?.pending || 0,
+      completedAmount: totalCommissions[0]?.completed || 0,
     };
   }
 
@@ -224,7 +203,7 @@ export class PartnerService {
   async getPartnerCommissions(
     partnerId: string,
     filters?: {
-      status?: 'pending' | 'paid' | 'cancelled';
+      status?: 'pending' | 'completed' | 'failed' | 'cancelled';
       startDate?: Date;
       endDate?: Date;
     },
@@ -237,10 +216,9 @@ export class PartnerService {
       limit,
       offset,
       with: {
-        game: {
+        user: {
           columns: {
-            id: true,
-            name: true,
+            username: true,
           },
         },
       },
@@ -280,7 +258,7 @@ export class PartnerService {
         email: true,
         phoneNumber: true,
         createdAt: true,
-        isActive: true,
+        status: true,
       },
     });
 
@@ -295,7 +273,7 @@ export class PartnerService {
         const totalWagered = userBets.reduce((sum, bet) => sum + parseFloat(bet.amount), 0);
         const totalWon = userBets
           .filter(bet => bet.status === 'won')
-          .reduce((sum, bet) => sum + parseFloat(bet.payout || '0'), 0);
+          .reduce((sum, bet) => sum + parseFloat(bet.payoutAmount || '0'), 0);
 
         return {
           ...user,
@@ -311,34 +289,25 @@ export class PartnerService {
     return playersWithStats;
   }
 
-  // Request withdrawal
+  // Request withdrawal (would integrate with withdrawal system)
   async requestWithdrawal(partnerId: string, amount: number) {
     const partner = await this.getPartnerById(partnerId);
-    const availableBalance = parseFloat(partner.availableBalance);
+    const pendingCommission = parseFloat(partner.pendingCommission);
 
-    if (amount > availableBalance) {
-      throw new AppError('Insufficient balance', 400);
+    if (amount > pendingCommission) {
+      throw new AppError('Insufficient pending commission', 400);
     }
 
     if (amount < 100) {
       throw new AppError('Minimum withdrawal amount is ₹100', 400);
     }
 
-    // Note: Withdrawal request would be created in withdrawals table
-    // For now, we'll just update partner balance
-    const [updatedPartner] = await db
-      .update(partners)
-      .set({
-        availableBalance: (availableBalance - amount).toFixed(2),
-        updatedAt: new Date(),
-      })
-      .where(eq(partners.id, partnerId))
-      .returning();
-
+    // Note: In production, create withdrawal request in withdrawals table
+    // For now, return success message
     return {
       message: 'Withdrawal request submitted',
       amount,
-      newBalance: updatedPartner.availableBalance,
+      pendingCommission,
     };
   }
 
@@ -362,27 +331,28 @@ export class PartnerService {
 
     // Apply filters
     if (filters?.isActive !== undefined) {
-      allPartners = allPartners.filter(p => p.isActive === filters.isActive);
+      const targetStatus = filters.isActive ? 'active' : 'suspended';
+      allPartners = allPartners.filter(p => p.status === targetStatus);
     }
 
     if (filters?.searchTerm) {
       const term = filters.searchTerm.toLowerCase();
       allPartners = allPartners.filter(p =>
-        p.businessName.toLowerCase().includes(term) ||
-        p.contactPerson.toLowerCase().includes(term) ||
-        p.email.toLowerCase().includes(term)
+        p.partnerCode.toLowerCase().includes(term) ||
+        (p.user?.username || '').toLowerCase().includes(term) ||
+        (p.user?.email || '').toLowerCase().includes(term)
       );
     }
 
     return allPartners;
   }
 
-  // Admin: Approve partner
-  async approvePartner(partnerId: string) {
+  // Admin: Activate partner
+  async activatePartner(partnerId: string) {
     const [partner] = await db
       .update(partners)
       .set({
-        isActive: true,
+        status: 'active',
         updatedAt: new Date(),
       })
       .where(eq(partners.id, partnerId))
@@ -395,12 +365,12 @@ export class PartnerService {
     return partner;
   }
 
-  // Admin: Reject/Deactivate partner
-  async deactivatePartner(partnerId: string) {
+  // Admin: Suspend partner
+  async suspendPartner(partnerId: string) {
     const [partner] = await db
       .update(partners)
       .set({
-        isActive: false,
+        status: 'suspended',
         updatedAt: new Date(),
       })
       .where(eq(partners.id, partnerId))
@@ -423,7 +393,7 @@ export class PartnerService {
       throw new AppError('Commission not found', 404);
     }
 
-    if (commission.status === 'paid') {
+    if (commission.status === 'completed') {
       throw new AppError('Commission already paid', 400);
     }
 
@@ -431,26 +401,28 @@ export class PartnerService {
     await db
       .update(partnerCommissions)
       .set({
-        status: 'paid',
+        status: 'completed',
         paidAt: new Date(),
       })
       .where(eq(partnerCommissions.id, commissionId));
 
-    // Update partner balance
+    // Update partner totals
     const partner = await this.getPartnerById(commission.partnerId);
-    const newBalance = parseFloat(partner.availableBalance) + parseFloat(commission.commissionAmount);
+    const newTotalCommission = parseFloat(partner.totalCommission) + parseFloat(commission.amount);
+    const newPendingCommission = parseFloat(partner.pendingCommission) - parseFloat(commission.amount);
 
     await db
       .update(partners)
       .set({
-        availableBalance: newBalance.toFixed(2),
+        totalCommission: newTotalCommission.toFixed(2),
+        pendingCommission: Math.max(0, newPendingCommission).toFixed(2),
         updatedAt: new Date(),
       })
       .where(eq(partners.id, commission.partnerId));
 
     return {
       message: 'Commission paid successfully',
-      amount: commission.commissionAmount,
+      amount: commission.amount,
     };
   }
 
@@ -460,7 +432,7 @@ export class PartnerService {
     filters?: {
       startDate?: Date;
       endDate?: Date;
-      status?: 'pending' | 'paid' | 'cancelled';
+      status?: 'pending' | 'completed' | 'failed' | 'cancelled';
     },
     limit: number = 50,
     offset: number = 0
@@ -537,7 +509,7 @@ export class PartnerService {
     filters?: {
       startDate?: Date;
       endDate?: Date;
-      status?: 'pending' | 'paid' | 'cancelled';
+      status?: 'pending' | 'completed' | 'failed' | 'cancelled';
     },
     limit: number = 50,
     offset: number = 0

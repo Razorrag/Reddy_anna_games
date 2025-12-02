@@ -185,13 +185,9 @@ export class NotificationService {
   ) {
     try {
       // Get target users
-      let query = db.select({ id: users.id }).from(users);
-
-      if (userRole) {
-        query = query.where(eq(users.role, userRole as any));
-      }
-
-      const targetUsers = await query;
+      const targetUsers = userRole
+        ? await db.select({ id: users.id }).from(users).where(eq(users.role, userRole as any))
+        : await db.select({ id: users.id }).from(users);
 
       // Create notifications in batch
       const notificationValues = targetUsers.map(user => ({

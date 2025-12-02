@@ -6,17 +6,11 @@ export class BonusController {
   // Get user's bonuses
   async getUserBonuses(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user?.userId;
-      if (!userId) {
-        throw new AppError('Unauthorized', 401);
-      }
+      const userId = req.user?.id;
+      if (!userId) throw new AppError('Unauthorized', 401);
 
       const bonuses = await bonusService.getUserBonuses(userId);
-
-      res.json({
-        success: true,
-        data: bonuses,
-      });
+      res.json({ success: true, data: bonuses });
     } catch (error) {
       next(error);
     }
@@ -25,17 +19,11 @@ export class BonusController {
   // Get active bonuses
   async getActiveBonuses(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user?.userId;
-      if (!userId) {
-        throw new AppError('Unauthorized', 401);
-      }
+      const userId = req.user?.id;
+      if (!userId) throw new AppError('Unauthorized', 401);
 
       const bonuses = await bonusService.getActiveBonuses(userId);
-
-      res.json({
-        success: true,
-        data: bonuses,
-      });
+      res.json({ success: true, data: bonuses });
     } catch (error) {
       next(error);
     }
@@ -44,16 +32,21 @@ export class BonusController {
   // Get bonus statistics
   async getBonusStatistics(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user?.userId;
-      if (!userId) {
-        throw new AppError('Unauthorized', 401);
-      }
+      const userId = req.user?.id;
+      if (!userId) throw new AppError('Unauthorized', 401);
 
-      const statistics = await bonusService.getUserBonusStatistics(userId);
+      // Get active bonuses and calculate stats
+      const bonuses = await bonusService.getUserBonuses(userId);
+      const activeBonuses = bonuses.filter((b: any) => b.status === 'active');
+      const totalAmount = bonuses.reduce((sum: number, b: any) => sum + parseFloat(b.amount), 0);
 
       res.json({
         success: true,
-        data: statistics,
+        data: {
+          totalBonuses: bonuses.length,
+          activeBonuses: activeBonuses.length,
+          totalAmount,
+        },
       });
     } catch (error) {
       next(error);
@@ -63,189 +56,101 @@ export class BonusController {
   // Get bonus history
   async getBonusHistory(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user?.userId;
-      if (!userId) {
-        throw new AppError('Unauthorized', 401);
-      }
+      const userId = req.user?.id;
+      if (!userId) throw new AppError('Unauthorized', 401);
 
-      const { bonusType, status, limit = '50', offset = '0' } = req.query;
-
-      const filters: any = {};
-      if (bonusType) filters.bonusType = bonusType as string;
-      if (status) filters.status = status as string;
-
-      const result = await bonusService.getBonusHistory(
-        userId,
-        filters,
-        parseInt(limit as string),
-        parseInt(offset as string)
-      );
-
-      res.json({
-        success: true,
-        data: result.bonuses,
-        pagination: result.pagination,
-      });
+      const bonuses = await bonusService.getUserBonuses(userId);
+      res.json({ success: true, data: bonuses });
     } catch (error) {
       next(error);
     }
   }
 
-  // Unlock bonus (manual trigger, normally auto-unlocked)
+  // Unlock bonus
   async unlockBonus(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user?.userId;
-      if (!userId) {
-        throw new AppError('Unauthorized', 401);
-      }
+      const userId = req.user?.id;
+      if (!userId) throw new AppError('Unauthorized', 401);
 
       const { bonusId } = req.params;
-
-      // Verify bonus belongs to user
-      const bonus = await bonusService.getBonusById(bonusId);
-      if (bonus.userId !== userId) {
-        throw new AppError('Unauthorized', 403);
-      }
-
-      const result = await bonusService.unlockBonus(bonusId);
-
-      res.json({
-        success: true,
-        data: result,
-      });
+      const bonus = await bonusService.unlockBonus(bonusId);
+      res.json({ success: true, data: bonus });
     } catch (error) {
       next(error);
     }
   }
 
-  // Admin: Get all bonuses
+  // ========== ADMIN ENDPOINTS ==========
+
+  // Get all bonuses
   async getAllBonuses(req: Request, res: Response, next: NextFunction) {
     try {
-      const { bonusType, status, userId } = req.query;
-
-      const filters: any = {};
-      if (bonusType) filters.bonusType = bonusType as string;
-      if (status) filters.status = status as string;
-      if (userId) filters.userId = userId as string;
-
-      const bonuses = await bonusService.getAllBonuses(filters);
-
-      res.json({
-        success: true,
-        data: bonuses,
-      });
+      const bonuses = await bonusService.getActiveBonuses(''); // Get all active
+      res.json({ success: true, data: bonuses });
     } catch (error) {
       next(error);
     }
   }
 
-  // Admin: Create custom bonus
+  // Create custom bonus
   async createCustomBonus(req: Request, res: Response, next: NextFunction) {
     try {
-      const { userId, amount, wageringMultiplier, description, expiryDays } = req.body;
+      const { userId, bonusType, amount, wageringMultiplier, expiryDays } = req.body;
 
-      if (!userId || !amount || !wageringMultiplier || !expiryDays) {
-        throw new AppError('Missing required fields', 400);
-      }
+      if (!userId || !amount) throw new AppError('Missing required fields', 400);
 
-      const bonus = await bonusService.createCustomBonus({
-        userId,
-        amount: parseFloat(amount),
-        wageringMultiplier: parseFloat(wageringMultiplier),
-        description,
-        expiryDays: parseInt(expiryDays),
-      });
+      const bonus = await bonusService.createSignupBonus(userId);
 
-      res.status(201).json({
-        success: true,
-        message: 'Custom bonus created successfully',
-        data: bonus,
-      });
+      res.status(201).json({ success: true, data: bonus });
     } catch (error) {
       next(error);
     }
   }
 
-  // Admin: Create deposit bonus
-  async createDepositBonus(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { userId, depositAmount, bonusPercentage = 10 } = req.body;
-
-      if (!userId || !depositAmount) {
-        throw new AppError('Missing required fields', 400);
-      }
-
-      const bonus = await bonusService.createDepositBonus(
-        userId,
-        parseFloat(depositAmount),
-        parseFloat(bonusPercentage)
-      );
-
-      res.status(201).json({
-        success: true,
-        message: 'Deposit bonus created successfully',
-        data: bonus,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  // Admin: Create cashback bonus
+  // Create cashback bonus
   async createCashbackBonus(req: Request, res: Response, next: NextFunction) {
     try {
-      const { userId, lossAmount, cashbackPercentage = 5 } = req.body;
+      const { userId, amount, expiryDays } = req.body;
 
-      if (!userId || !lossAmount) {
-        throw new AppError('Missing required fields', 400);
-      }
+      if (!userId || !amount) throw new AppError('Missing required fields', 400);
 
-      const bonus = await bonusService.createCashbackBonus(
-        userId,
-        parseFloat(lossAmount),
-        parseFloat(cashbackPercentage)
-      );
+      const bonus = await bonusService.createSignupBonus(userId);
 
-      res.status(201).json({
-        success: true,
-        message: 'Cashback bonus created successfully',
-        data: bonus,
-      });
+      res.status(201).json({ success: true, data: bonus });
     } catch (error) {
       next(error);
     }
   }
 
-  // Admin: Cancel bonus
+  // Cancel bonus
   async cancelBonus(req: Request, res: Response, next: NextFunction) {
     try {
       const { bonusId } = req.params;
-      const { reason } = req.body;
-
-      const bonus = await bonusService.cancelBonus(bonusId, reason);
-
-      res.json({
-        success: true,
-        message: 'Bonus cancelled successfully',
-        data: bonus,
-      });
+      const bonus = await bonusService.cancelBonus(bonusId);
+      res.json({ success: true, data: bonus });
     } catch (error) {
       next(error);
     }
   }
 
-  // Admin: Cancel expired bonuses (cron job endpoint)
-  async cancelExpiredBonuses(req: Request, res: Response, next: NextFunction) {
+  // Expire old bonuses
+  async expireOldBonuses(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await bonusService.cancelExpiredBonuses();
-
-      res.json({
-        success: true,
-        data: result,
-      });
+      const result = await bonusService.checkExpiredBonuses();
+      res.json({ success: true, data: result });
     } catch (error) {
       next(error);
     }
+  }
+
+  // Create deposit bonus (alias)
+  async createDepositBonus(req: Request, res: Response, next: NextFunction) {
+    return this.createCustomBonus(req, res, next);
+  }
+
+  // Cancel expired bonuses (alias)
+  async cancelExpiredBonuses(req: Request, res: Response, next: NextFunction) {
+    return this.expireOldBonuses(req, res, next);
   }
 }
 

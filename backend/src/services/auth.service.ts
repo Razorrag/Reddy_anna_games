@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { nanoid } from 'nanoid';
 import { db } from '../db';
@@ -44,7 +44,7 @@ export class AuthService {
     return jwt.sign(
       { userId, role },
       this.JWT_SECRET,
-      { expiresIn: this.JWT_EXPIRES_IN }
+      { expiresIn: this.JWT_EXPIRES_IN } as jwt.SignOptions
     );
   }
 
@@ -101,6 +101,9 @@ export class AuthService {
 
     // Update referrer's bonus balance
     const [referrer] = await db.select().from(users).where(eq(users.id, referrerId)).limit(1);
+    if (!referrer) {
+      throw new AppError('Referrer not found', 404);
+    }
     const newBonusBalance = (parseFloat(referrer.bonusBalance) + bonusAmount).toFixed(2);
     
     await db.update(users)
@@ -172,6 +175,10 @@ export class AuthService {
       balance: '0.00',
       bonusBalance: '0.00',
     }).returning();
+
+    if (!user) {
+      throw new AppError('Failed to create user', 500);
+    }
 
     // Create signup bonus
     await this.createSignupBonus(user.id);
@@ -302,6 +309,10 @@ export class AuthService {
   async refreshToken(oldToken: string) {
     const user = await this.verifyToken(oldToken);
     const [dbUser] = await db.select().from(users).where(eq(users.id, user.id)).limit(1);
+    
+    if (!dbUser) {
+      throw new AppError('User not found', 404);
+    }
     
     const newToken = this.generateToken(dbUser.id, dbUser.role);
     

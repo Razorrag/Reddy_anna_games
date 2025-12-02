@@ -215,13 +215,9 @@ export class NotificationController {
 
       // Get all users matching criteria
       const { users } = await import('../db/schema');
-      let query = db.select({ id: users.id }).from(users);
-
-      if (userRole) {
-        query = query.where(eq(users.role, userRole));
-      }
-
-      const targetUsers = await query;
+      const targetUsers = userRole
+        ? await db.select({ id: users.id }).from(users).where(eq(users.role, userRole as any))
+        : await db.select({ id: users.id }).from(users);
 
       // Create notifications for all users
       const notificationValues = targetUsers.map(user => ({

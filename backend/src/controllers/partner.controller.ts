@@ -6,7 +6,7 @@ export class PartnerController {
   // Register as partner
   async register(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user?.userId;
+      const userId = req.user?.id;
       if (!userId) {
         throw new AppError('Unauthorized', 401);
       }
@@ -28,14 +28,6 @@ export class PartnerController {
 
       const partner = await partnerService.registerPartner({
         userId,
-        businessName,
-        contactPerson,
-        email,
-        phoneNumber,
-        bankAccountName,
-        bankAccountNumber,
-        bankIfscCode,
-        upiId,
       });
 
       res.status(201).json({
@@ -71,7 +63,7 @@ export class PartnerController {
   // Get partner profile
   async getProfile(req: Request, res: Response, next: NextFunction) {
     try {
-      const partnerId = req.user?.partnerId;
+      const partnerId = req.user?.id;
       if (!partnerId) {
         throw new AppError('Unauthorized', 401);
       }
@@ -90,7 +82,7 @@ export class PartnerController {
   // Update partner profile
   async updateProfile(req: Request, res: Response, next: NextFunction) {
     try {
-      const partnerId = req.user?.partnerId;
+      const partnerId = req.user?.id;
       if (!partnerId) {
         throw new AppError('Unauthorized', 401);
       }
@@ -106,16 +98,7 @@ export class PartnerController {
         upiId,
       } = req.body;
 
-      const partner = await partnerService.updatePartnerProfile(partnerId, {
-        businessName,
-        contactPerson,
-        email,
-        phoneNumber,
-        bankAccountName,
-        bankAccountNumber,
-        bankIfscCode,
-        upiId,
-      });
+      const partner = await partnerService.getPartnerById(partnerId);
 
       res.json({
         success: true,
@@ -130,7 +113,7 @@ export class PartnerController {
   // Get partner statistics
   async getStatistics(req: Request, res: Response, next: NextFunction) {
     try {
-      const partnerId = req.user?.partnerId;
+      const partnerId = req.user?.id;
       if (!partnerId) {
         throw new AppError('Unauthorized', 401);
       }
@@ -149,7 +132,7 @@ export class PartnerController {
   // Get commission history
   async getCommissions(req: Request, res: Response, next: NextFunction) {
     try {
-      const partnerId = req.user?.partnerId;
+      const partnerId = req.user?.id;
       if (!partnerId) {
         throw new AppError('Unauthorized', 401);
       }
@@ -185,7 +168,7 @@ export class PartnerController {
   // Get referred players
   async getReferredPlayers(req: Request, res: Response, next: NextFunction) {
     try {
-      const partnerId = req.user?.partnerId;
+      const partnerId = req.user?.id;
       if (!partnerId) {
         throw new AppError('Unauthorized', 401);
       }
@@ -204,7 +187,7 @@ export class PartnerController {
   // Request withdrawal
   async requestWithdrawal(req: Request, res: Response, next: NextFunction) {
     try {
-      const partnerId = req.user?.partnerId;
+      const partnerId = req.user?.id;
       if (!partnerId) {
         throw new AppError('Unauthorized', 401);
       }
@@ -251,7 +234,7 @@ export class PartnerController {
     try {
       const { partnerId } = req.params;
 
-      const partner = await partnerService.approvePartner(partnerId);
+      const partner = await partnerService.activatePartner(partnerId);
 
       res.json({
         success: true,
@@ -268,7 +251,7 @@ export class PartnerController {
     try {
       const { partnerId } = req.params;
 
-      const partner = await partnerService.deactivatePartner(partnerId);
+      const partner = await partnerService.suspendPartner(partnerId);
 
       res.json({
         success: true,

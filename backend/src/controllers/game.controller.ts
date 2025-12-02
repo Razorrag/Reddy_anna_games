@@ -95,9 +95,20 @@ export class GameController {
   async getRoundStatistics(req: Request, res: Response, next: NextFunction) {
     try {
       const { roundId } = req.params;
-      const statistics = await gameService.getRoundStatistics(roundId);
+      const round = await gameService.getRoundById(roundId);
+      if (!round) {
+        return res.status(404).json({ error: 'Round not found' });
+      }
 
-      res.json({ statistics });
+      res.json({
+        statistics: {
+          id: round.id,
+          status: round.status,
+          totalAndarBets: round.totalAndarBets,
+          totalBaharBets: round.totalBaharBets,
+          totalBetAmount: round.totalBetAmount,
+        },
+      });
     } catch (error) {
       next(error);
     }
@@ -110,7 +121,7 @@ export class GameController {
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
 
-      const history = await gameService.getGameHistory(gameId, limit, offset);
+      const history = await gameService.getGameHistory(gameId, limit);
 
       res.json({ history });
     } catch (error) {

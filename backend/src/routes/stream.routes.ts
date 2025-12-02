@@ -1,91 +1,54 @@
 import { Router } from 'express';
-import { authenticateToken, requireAdmin } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 import { streamService } from '../services/stream.service';
 
 const router = Router();
 
-/**
- * Stream Control Routes
- * Admin-only routes for managing live stream configuration and status
- */
-
-// Get current stream configuration
-router.get('/config', authenticateToken, requireAdmin, async (req, res, next) => {
+// Get stream info
+router.get('/info', authenticate, async (req, res, next) => {
   try {
-    const config = await streamService.getStreamConfig();
-    res.json(config);
+    const info = await streamService.getStreamInfo('app', 'stream');
+    res.json(info);
   } catch (error) {
     next(error);
   }
 });
 
-// Update stream configuration
-router.post('/config', authenticateToken, requireAdmin, async (req, res, next) => {
+// Check if stream is live
+router.get('/status', async (req, res, next) => {
   try {
-    const { streamUrl, streamKey, isActive } = req.body;
-    
-    const config = await streamService.updateStreamConfig({
-      streamUrl,
-      streamKey,
-      isActive,
-    });
-    
-    res.json({
-      message: 'Stream configuration updated',
-      config,
-    });
+    const isLive = await streamService.isStreamLive('app', 'stream');
+    res.json({ isLive });
   } catch (error) {
     next(error);
   }
 });
 
-// Toggle stream pause/resume
-router.post('/toggle-pause', authenticateToken, requireAdmin, async (req, res, next) => {
+// Get viewer count
+router.get('/viewers', authenticate, async (req, res, next) => {
   try {
-    const { paused } = req.body;
-    
-    const result = await streamService.toggleStreamPause(paused);
-    
-    res.json({
-      message: paused ? 'Stream paused' : 'Stream resumed',
-      ...result,
-    });
+    const count = await streamService.getViewerCount('app', 'stream');
+    res.json({ viewers: count });
   } catch (error) {
     next(error);
   }
 });
 
-// Get stream health status
-router.get('/health', authenticateToken, async (req, res, next) => {
+// Get stream URLs
+router.get('/urls', async (req, res, next) => {
   try {
-    const health = await streamService.getStreamHealth();
-    res.json(health);
+    const urls = streamService.getStreamUrls('app', 'stream');
+    res.json(urls);
   } catch (error) {
     next(error);
   }
 });
 
-// Get stream statistics
-router.get('/stats', authenticateToken, requireAdmin, async (req, res, next) => {
+// Test connectivity
+router.get('/test', authenticate, async (req, res, next) => {
   try {
-    const stats = await streamService.getStreamStats();
-    res.json(stats);
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Test stream connection
-router.post('/test', authenticateToken, requireAdmin, async (req, res, next) => {
-  try {
-    const { streamUrl } = req.body;
-    
-    const result = await streamService.testStreamConnection(streamUrl);
-    
-    res.json({
-      message: 'Stream connection test complete',
-      ...result,
-    });
+    const result = await streamService.testStreamConnectivity();
+    res.json(result);
   } catch (error) {
     next(error);
   }

@@ -102,15 +102,13 @@ export function initializeGameFlow(io: SocketIOServer) {
           message: 'Bet placed successfully',
         });
 
-        // Get round statistics
-        const roundStats = await gameService.getRoundStatistics(roundId);
-
         // Broadcast updated round stats to all players
-        const round = await gameService.getCurrentRound(bet.gameId);
+        const round = await gameService.getRoundById(roundId);
         if (round) {
-          io.to(`game:${bet.gameId}`).emit('round:stats_updated', {
+          io.to(`game:${round.gameId}`).emit('round:stats_updated', {
             roundId,
-            stats: roundStats,
+            totalAndarBets: round.totalAndarBets,
+            totalBaharBets: round.totalBaharBets,
           });
         }
 
@@ -247,7 +245,7 @@ export function initializeGameFlow(io: SocketIOServer) {
         const round = await gameService.dealCardsAndDetermineWinner(roundId);
 
         // Broadcast winner to all players
-        io.to(`game:${round.gameId}`).emit('game:winner_determined', {
+        io.to(`game:${round.round.gameId}`).emit('game:winner_determined', {
           round,
           winningSide: round.winningSide,
           message: `Winner: ${round.winningSide?.toUpperCase()}!`,
@@ -287,9 +285,6 @@ export function initializeGameFlow(io: SocketIOServer) {
           }
         }
 
-        // Save round to history
-        await gameService.saveRoundToHistory(roundId);
-
         // Update game statistics
         if (roundBets.length > 0) {
           await gameService.updateGameStatistics(roundBets[0].gameId, roundId);
@@ -309,13 +304,10 @@ export function initializeGameFlow(io: SocketIOServer) {
           throw new Error('Unauthorized: Admin access required');
         }
 
-        const stats = await gameService.getGameStatistics(gameId);
         const currentRound = await gameService.getCurrentRound(gameId);
-        const roundStats = currentRound ? await gameService.getRoundStatistics(currentRound.id) : null;
 
         socket.emit('admin:stats', {
-          gameStats: stats,
-          currentRoundStats: roundStats,
+          currentRound,
         });
       } catch (error: any) {
         logger.error('Error getting stats:', error);

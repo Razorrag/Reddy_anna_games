@@ -33,8 +33,8 @@ export class UserService {
         totalBets: 0,
         totalWins: 0,
         totalLosses: 0,
-        totalWagered: '0.00',
-        totalWinnings: '0.00',
+        totalBetAmount: '0.00',
+        totalWinAmount: '0.00',
         biggestWin: '0.00',
         currentStreak: 0,
         longestStreak: 0,
@@ -187,7 +187,7 @@ export class UserService {
         username: true,
         fullName: true,
         createdAt: true,
-        isActive: true,
+        status: true,
       },
     });
 
@@ -205,7 +205,7 @@ export class UserService {
     const [updatedUser] = await db
       .update(users)
       .set({
-        isActive: false,
+        status: 'suspended' as const,
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId))
@@ -219,7 +219,7 @@ export class UserService {
     const [updatedUser] = await db
       .update(users)
       .set({
-        isActive: true,
+        status: 'active' as const,
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId))
