@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate } from 'wouter';
+import { useLocation } from "wouter";
 import { api } from '../../../lib/api';
 import { useAuthStore } from '../../../store/authStore';
 import { toast } from 'sonner';
@@ -22,7 +22,7 @@ interface SignupResponse {
  * Signup mutation with automatic ₹500 signup bonus
  */
 export const useSignup = () => {
-  const navigate = useNavigate();
+  const [, navigate] = useLocation();
   const { login } = useAuthStore();
 
   return useMutation({

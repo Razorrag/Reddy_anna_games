@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate } from 'wouter';
+import { useLocation } from "wouter";
 import { api } from '../../../lib/api';
 import { useAuthStore } from '../../../store/authStore';
 import { toast } from 'sonner';
@@ -19,7 +19,7 @@ interface LoginResponse {
  * Login mutation
  */
 export const useLogin = () => {
-  const navigate = useNavigate();
+  const [, navigate] = useLocation();
   const { login } = useAuthStore();
 
   return useMutation({
