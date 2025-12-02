@@ -4,16 +4,16 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'sonner';
 
 // Layouts
-import { PlayerLayout } from './layouts/PlayerLayout';
-import { AdminLayout } from './layouts/AdminLayout';
-import { PartnerLayout } from './layouts/PartnerLayout';
+import PlayerLayout from './layouts/PlayerLayout';
+import AdminLayout from './layouts/AdminLayout';
+import PartnerLayout from './layouts/PartnerLayout';
 
 // Public Pages
-import { LandingPage } from './pages/public/LandingPage';
-import { LoginPage } from './pages/auth/LoginPage';
-import { SignupPage } from './pages/auth/SignupPage';
-import { PartnerLoginPage } from './pages/auth/PartnerLoginPage';
-import { PartnerSignupPage } from './pages/auth/PartnerSignupPage';
+import LandingPage from './pages/public/LandingPage';
+import Login from './pages/auth/Login';
+import Signup from './pages/auth/Signup';
+import PartnerLoginPage from './pages/auth/PartnerLoginPage';
+import PartnerSignupPage from './pages/auth/PartnerSignupPage';
 
 // Player Pages
 import { GameRoomPage } from './pages/player/GameRoomPage';
@@ -53,7 +53,7 @@ import { PartnerCommissionsPage } from './pages/partner/PartnerCommissionsPage';
 import { PartnerGameHistoryPage } from './pages/partner/PartnerGameHistoryPage';
 
 // 404 Page
-import { NotFoundPage } from './pages/NotFoundPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 // Create React Query client
 const queryClient = new QueryClient({
@@ -83,8 +83,8 @@ function App() {
         <Switch>
           {/* Public Routes */}
           <Route path="/" component={LandingPage} />
-          <Route path="/login" component={LoginPage} />
-          <Route path="/signup" component={SignupPage} />
+          <Route path="/login" component={Login} />
+          <Route path="/signup" component={Signup} />
           <Route path="/partner/login" component={PartnerLoginPage} />
           <Route path="/partner/signup" component={PartnerSignupPage} />
 

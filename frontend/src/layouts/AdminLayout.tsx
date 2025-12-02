@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -46,29 +46,28 @@ const navigationItems: NavItem[] = [
   { label: 'System Settings', icon: Settings, path: '/admin/settings' }
 ];
 
-export default function AdminLayout() {
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const location = useLocation();
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
   const { user, logout } = useAuthStore();
   const { unreadCount, setIsOpen } = useNotificationStore();
 
   const handleLogout = () => {
     logout();
-    navigate('/admin/login');
+    setLocation('/login');
   };
 
   const getBreadcrumbs = () => {
-    const paths = location.pathname.split('/').filter(Boolean);
-    return paths.map((path, index) => ({
-      label: path.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+    const paths = location.split('/').filter(Boolean);
+    return paths.map((path: string, index: number) => ({
+      label: path.split('-').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
       path: '/' + paths.slice(0, index + 1).join('/')
     }));
   };
 
   const breadcrumbs = getBreadcrumbs();
-  const currentPage = navigationItems.find(item => item.path === location.pathname);
+  const currentPage = navigationItems.find(item => item.path === location);
 
   return (
     <div className="min-h-screen bg-[#0A0E27]">
@@ -81,13 +80,15 @@ export default function AdminLayout() {
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-cyan-500/30">
           {sidebarOpen ? (
-            <Link to="/admin" className="flex items-center gap-2">
+            <Link href="/admin">
+              <a className="flex items-center gap-2">
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
                 <Gamepad2 className="w-6 h-6 text-white" />
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
                 Reddy Anna
               </span>
+              </a>
             </Link>
           ) : (
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center mx-auto">
@@ -100,13 +101,11 @@ export default function AdminLayout() {
         <nav className="p-4 space-y-1 overflow-y-auto h-[calc(100vh-8rem)]">
           {navigationItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path;
+            const isActive = location === item.path;
 
             return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all group relative ${
+              <Link key={item.path} href={item.path}>
+                <a className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all group relative ${
                   isActive
                     ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white'
                     : 'text-gray-400 hover:text-white hover:bg-[#0f1432]'
@@ -128,6 +127,7 @@ export default function AdminLayout() {
                     {item.badge}
                   </div>
                 )}
+                </a>
               </Link>
             );
           })}
@@ -162,13 +162,15 @@ export default function AdminLayout() {
             >
               {/* Mobile Logo */}
               <div className="h-16 flex items-center justify-between px-4 border-b border-cyan-500/30">
-                <Link to="/admin" className="flex items-center gap-2">
+                <Link href="/admin">
+                  <a className="flex items-center gap-2">
                   <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
                     <Gamepad2 className="w-6 h-6 text-white" />
                   </div>
                   <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
                     Reddy Anna
                   </span>
+                  </a>
                 </Link>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
@@ -182,14 +184,13 @@ export default function AdminLayout() {
               <nav className="p-4 space-y-1">
                 {navigationItems.map((item) => {
                   const Icon = item.icon;
-                  const isActive = location.pathname === item.path;
+                  const isActive = location === item.path;
 
                   return (
-                    <Link
-                      key={item.path}
-                      to={item.path}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                    <Link key={item.path} href={item.path}>
+                      <a
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
                         isActive
                           ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white'
                           : 'text-gray-400 hover:text-white hover:bg-[#0f1432]'
@@ -202,6 +203,7 @@ export default function AdminLayout() {
                           {item.badge}
                         </Badge>
                       )}
+                      </a>
                     </Link>
                   );
                 })}
@@ -228,15 +230,15 @@ export default function AdminLayout() {
             {breadcrumbs.map((crumb, index) => (
               <div key={crumb.path} className="flex items-center gap-2">
                 {index > 0 && <ChevronRight className="w-4 h-4 text-gray-500" />}
-                <Link
-                  to={crumb.path}
-                  className={`${
+                <Link href={crumb.path}>
+                  <a className={`${
                     index === breadcrumbs.length - 1
                       ? 'text-cyan-400 font-medium'
                       : 'text-gray-400 hover:text-white'
                   }`}
                 >
                   {crumb.label}
+                  </a>
                 </Link>
               </div>
             ))}
@@ -292,7 +294,7 @@ export default function AdminLayout() {
 
         {/* Page Content */}
         <main className="min-h-[calc(100vh-4rem)] relative">
-          <Outlet />
+          {children}
           {/* Admin Notification Panel - Fixed right sidebar on ALL admin pages */}
           <AdminNotificationPanel />
         </main>
@@ -304,14 +306,14 @@ export default function AdminLayout() {
               © 2024 Reddy Anna. All rights reserved.
             </p>
             <div className="flex items-center gap-6 text-sm">
-              <Link to="/admin/help" className="text-gray-400 hover:text-cyan-400">
-                Help & Support
+              <Link href="/admin/help">
+                <a className="text-gray-400 hover:text-cyan-400">Help & Support</a>
               </Link>
-              <Link to="/admin/docs" className="text-gray-400 hover:text-cyan-400">
-                Documentation
+              <Link href="/admin/docs">
+                <a className="text-gray-400 hover:text-cyan-400">Documentation</a>
               </Link>
-              <Link to="/admin/privacy" className="text-gray-400 hover:text-cyan-400">
-                Privacy Policy
+              <Link href="/admin/privacy">
+                <a className="text-gray-400 hover:text-cyan-400">Privacy Policy</a>
               </Link>
             </div>
           </div>

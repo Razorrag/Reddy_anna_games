@@ -28,7 +28,7 @@ interface PlayerLayoutProps {
   children: ReactNode;
 }
 
-export function PlayerLayout({ children }: PlayerLayoutProps) {
+export default function PlayerLayout({ children }: PlayerLayoutProps) {
   const [location, navigate] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuthStore();
