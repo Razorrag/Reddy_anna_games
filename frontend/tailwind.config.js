@@ -69,6 +69,12 @@ export default {
           light: '#93C5FD',
           dark: '#1E40AF',
         },
+        // Earth tone colors for game table
+        earth: {
+          brown: '#6B4423',
+          maroon: '#8B3A3A',
+          teal: '#2C7A7B',
+        },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
@@ -118,14 +124,23 @@ export default {
       boxShadow: {
         'gold': '0 4px 14px 0 rgba(255, 215, 0, 0.39)',
         'gold-lg': '0 10px 40px 0 rgba(255, 215, 0, 0.5)',
+        'gold-glow': '0 0 20px rgba(255, 215, 0, 0.5), 0 0 40px rgba(255, 215, 0, 0.3)',
+        'gold-glow-strong': '0 0 30px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 215, 0, 0.5)',
+        'gold-shine': '0 0 5px rgba(255, 215, 0, 0.8)',
         'royal': '0 4px 14px 0 rgba(45, 55, 72, 0.6)',
         'royal-lg': '0 10px 40px 0 rgba(45, 55, 72, 0.8)',
         'neon-gold': '0 0 5px theme("colors.gold.DEFAULT"), 0 0 20px theme("colors.gold.DEFAULT")',
         'neon-blue': '0 0 5px theme("colors.info.DEFAULT"), 0 0 20px theme("colors.info.DEFAULT")',
+        'neon-cyan': '0 0 20px rgba(0, 245, 255, 0.6), 0 0 40px rgba(0, 245, 255, 0.4)',
+        'neon-cyan-strong': '0 0 30px rgba(0, 245, 255, 0.9), 0 0 60px rgba(0, 245, 255, 0.6)',
+        'andar-glow': '0 0 20px rgba(239, 68, 68, 0.6), 0 0 40px rgba(239, 68, 68, 0.3)',
+        'bahar-glow': '0 0 20px rgba(59, 130, 246, 0.6), 0 0 40px rgba(59, 130, 246, 0.3)',
       },
       animation: {
         'spin-slow': 'spin 3s linear infinite',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'pulse-gold': 'pulseGold 2s ease-in-out infinite',
+        'pulse-neon': 'pulseNeon 1.5s ease-in-out infinite',
         'bounce-slow': 'bounce 2s infinite',
         'shine': 'shine 2s linear infinite',
         'glow': 'glow 2s ease-in-out infinite',
@@ -149,6 +164,14 @@ export default {
         glow: {
           '0%, 100%': { boxShadow: '0 0 5px theme("colors.gold.DEFAULT"), 0 0 20px theme("colors.gold.DEFAULT")' },
           '50%': { boxShadow: '0 0 20px theme("colors.gold.DEFAULT"), 0 0 40px theme("colors.gold.DEFAULT")' },
+        },
+        pulseGold: {
+          '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+          '50%': { opacity: '0.8', transform: 'scale(1.05)' },
+        },
+        pulseNeon: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.6' },
         },
         slideIn: {
           '0%': { transform: 'translateY(-100%)', opacity: '0' },

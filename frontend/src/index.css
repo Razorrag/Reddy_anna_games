@@ -135,7 +135,7 @@
   /* Button - Gold style */
   .btn-gold {
     @apply bg-gold-gradient text-royal-dark font-semibold py-3 px-6 rounded-lg;
-    @apply shadow-gold-glow hover:shadow-gold-glow-strong;
+    @apply shadow-gold hover:shadow-gold-lg;
     @apply transition-all duration-300;
     @apply hover:scale-105 active:scale-95;
   }
@@ -143,7 +143,7 @@
   /* Button - Neon Cyan style (for ANDAR/BAHAR) */
   .btn-neon {
     @apply bg-neon-gradient text-royal-dark font-bold py-4 px-8 rounded-xl;
-    @apply shadow-neon-cyan hover:shadow-neon-cyan-strong;
+    @apply shadow-neon-cyan;
     @apply transition-all duration-300;
     @apply hover:scale-105 active:scale-95;
     @apply animate-pulse-neon;
@@ -152,19 +152,17 @@
   /* Button - Andar style (warm orange) */
   .btn-andar {
     @apply bg-andar-gradient text-white font-bold py-4 px-8 rounded-xl;
-    @apply shadow-andar-glow;
     @apply transition-all duration-300;
     @apply hover:scale-105 active:scale-95;
-    @apply border-2 border-andar-glow;
+    @apply border-2 border-andar;
   }
   
   /* Button - Bahar style (cyan) */
   .btn-bahar {
     @apply bg-bahar-gradient text-royal-dark font-bold py-4 px-8 rounded-xl;
-    @apply shadow-bahar-glow;
     @apply transition-all duration-300;
     @apply hover:scale-105 active:scale-95;
-    @apply border-2 border-bahar-glow;
+    @apply border-2 border-bahar;
   }
   
   /* Input fields - Royal theme */
@@ -179,9 +177,9 @@
   .chip {
     @apply inline-flex items-center justify-center;
     @apply bg-gold-gradient text-royal-dark font-bold rounded-full;
-    @apply shadow-gold-glow;
+    @apply shadow-gold;
     @apply min-w-[60px] min-h-[60px];
-    @apply border-4 border-gold-shine;
+    @apply border-4 border-gold;
   }
   
   /* Playing card */
@@ -206,7 +204,7 @@
   .balance-display {
     @apply flex items-center gap-2 bg-royal-medium px-6 py-3 rounded-full;
     @apply border-2 border-gold/50;
-    @apply shadow-gold-glow;
+    @apply shadow-gold;
   }
   
   /* Timer countdown */
