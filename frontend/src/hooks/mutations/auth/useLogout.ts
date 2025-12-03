@@ -14,7 +14,7 @@ export const useLogout = () => {
 
   return useMutation({
     mutationFn: async () => {
-      await api.post('/api/auth/logout');
+      await api.post('/auth/logout');
     },
     onSuccess: () => {
       // Clear auth state

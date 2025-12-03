@@ -254,12 +254,12 @@ export default function LandingPage() {
             Ready to Win Big?
           </h2>
           <p className="text-royal-800 text-xl mb-8 max-w-2xl mx-auto">
-            Join thousands of winners on India's most trusted gaming platform. 
-            Get ₹100 welcome bonus on signup!
+            Join thousands of winners on India's most trusted gaming platform.
+            Start playing instantly with fast payouts!
           </p>
           <Link href="/signup">
             <Button size="lg" className="bg-royal-900 hover:bg-royal-800 text-gold-400 font-semibold text-lg px-8">
-              Claim Your Bonus Now
+              Start Playing Now
               <Star className="ml-2 h-5 w-5" />
             </Button>
           </Link>
@@ -301,6 +301,16 @@ export default function LandingPage() {
                 <li><Link href="/help" className="text-royal-400 hover:text-gold-400">Help Center</Link></li>
                 <li><Link href="/faq" className="text-royal-400 hover:text-gold-400">FAQ</Link></li>
                 <li><a href="mailto:support@reddyanna.com" className="text-royal-400 hover:text-gold-400">support@reddyanna.com</a></li>
+                <li>
+                  <a
+                    href="https://wa.me/YOUR_WHATSAPP_NUMBER"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-royal-400 hover:text-gold-400 flex items-center gap-2"
+                  >
+                    <span className="text-green-500">📱</span> WhatsApp Support
+                  </a>
+                </li>
               </ul>
             </div>
           </div>

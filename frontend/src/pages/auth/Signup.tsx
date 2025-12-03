@@ -79,8 +79,8 @@ export default function Signup() {
       return
     }
 
-    if (phone.length !== 10 || !/^\d+$/.test(phone)) {
-      setError('Please enter a valid 10-digit mobile number')
+    if (phone.length < 6) {
+      setError('Please enter a valid mobile number')
       return
     }
 
@@ -143,7 +143,7 @@ export default function Signup() {
             Create Account
           </CardTitle>
           <CardDescription className="text-gray-300 text-lg font-medium">
-            Join now and get <Badge variant="secondary" className="bg-premium-gold text-[#0A0E27] shadow-glow-gold hover:scale-105 transition-transform inline-flex text-sm font-bold px-2 py-0.5 ml-1">₹100 Bonus</Badge>
+            Join the premier gaming platform today
           </CardDescription>
         </CardHeader>
 
@@ -157,12 +157,11 @@ export default function Signup() {
               <Input
                 id="phone"
                 type="tel"
-                placeholder="Enter 10-digit mobile number"
+                placeholder="Enter your mobile number"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                onChange={(e) => setPhone(e.target.value.trim())}
                 className="bg-[#0A0E27]/50 border-[#FFD700]/30 text-white placeholder:text-gray-500 focus:border-[#FFD700] focus:ring-[#FFD700] h-11 text-lg"
                 required
-                maxLength={10}
                 autoComplete="tel"
               />
             </div>
