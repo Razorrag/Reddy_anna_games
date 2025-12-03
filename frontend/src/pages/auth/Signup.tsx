@@ -126,24 +126,24 @@ export default function Signup() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0A0E27] via-[#1a1f3a] to-[#0A0E27] flex items-center justify-center p-4 py-8">
+    <div className="min-h-screen bg-[#0A0E27] flex items-center justify-center p-4 py-8 relative overflow-hidden">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-32 h-32 bg-[#FFD700]/10 rounded-full blur-xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-10 w-48 h-48 bg-purple-500/10 rounded-full blur-xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-        <div className="absolute top-1/2 right-20 w-24 h-24 bg-[#00F5FF]/10 rounded-full blur-xl animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-[#FFD700]/5 rounded-full blur-3xl animate-pulse-slow"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-[#1E40AF]/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
+        <div className="absolute top-[20%] right-[10%] w-[300px] h-[300px] bg-[#00F5FF]/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
       </div>
 
-      <Card className="w-full max-w-md bg-black/40 border-[#FFD700]/30 backdrop-blur-sm relative z-10">
+      <Card className="w-full max-w-md bg-[#1A1F3A]/80 border-[#FFD700]/30 backdrop-blur-md relative z-10 shadow-2xl shadow-black/50">
         <CardHeader className="text-center pb-6">
-          <div className="w-20 h-20 bg-gradient-to-br from-[#FFD700] to-[#FFA500] rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[#FFD700]/20">
-            <UserPlus className="w-10 h-10 text-[#0A0E27]" />
+          <div className="w-24 h-24 bg-gradient-to-br from-[#FFD700] to-[#FFA500] rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[#FFD700]/20 ring-4 ring-[#0A0E27]/50">
+            <UserPlus className="w-12 h-12 text-[#0A0E27]" />
           </div>
-          <CardTitle className="text-3xl font-bold text-[#FFD700] mb-2">
+          <CardTitle className="text-3xl font-bold text-[#FFD700] mb-2 drop-shadow-sm">
             Create Account
           </CardTitle>
-          <CardDescription className="text-gray-400">
-            Join now and get <Badge variant="gold" className="inline-flex">₹100 Bonus</Badge>
+          <CardDescription className="text-gray-300 text-lg font-medium">
+            Join now and get <Badge variant="secondary" className="bg-premium-gold text-[#0A0E27] shadow-glow-gold hover:scale-105 transition-transform inline-flex text-sm font-bold px-2 py-0.5 ml-1">₹100 Bonus</Badge>
           </CardDescription>
         </CardHeader>
 
@@ -160,7 +160,7 @@ export default function Signup() {
                 placeholder="Enter 10-digit mobile number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                className="bg-black/30 border-[#FFD700]/30 text-white placeholder:text-gray-400 focus:border-[#FFD700] focus:ring-[#FFD700]"
+                className="bg-[#0A0E27]/50 border-[#FFD700]/30 text-white placeholder:text-gray-500 focus:border-[#FFD700] focus:ring-[#FFD700] h-11 text-lg"
                 required
                 maxLength={10}
                 autoComplete="tel"
@@ -178,7 +178,7 @@ export default function Signup() {
                 placeholder="Choose a unique username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value.trim())}
-                className="bg-black/30 border-[#FFD700]/30 text-white placeholder:text-gray-400 focus:border-[#FFD700] focus:ring-[#FFD700]"
+                className="bg-[#0A0E27]/50 border-[#FFD700]/30 text-white placeholder:text-gray-500 focus:border-[#FFD700] focus:ring-[#FFD700] h-11 text-lg"
                 required
                 minLength={3}
                 autoComplete="username"
@@ -197,7 +197,7 @@ export default function Signup() {
                   placeholder="Create a strong password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="bg-black/30 border-[#FFD700]/30 text-white placeholder:text-gray-400 focus:border-[#FFD700] focus:ring-[#FFD700] pr-12"
+                  className="bg-[#0A0E27]/50 border-[#FFD700]/30 text-white placeholder:text-gray-500 focus:border-[#FFD700] focus:ring-[#FFD700] pr-12 h-11 text-lg"
                   required
                   minLength={8}
                   autoComplete="new-password"
@@ -209,7 +209,7 @@ export default function Signup() {
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-gray-400 hover:text-white"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </Button>
               </div>
               {password && (
@@ -241,7 +241,7 @@ export default function Signup() {
                   placeholder="Re-enter your password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="bg-black/30 border-[#FFD700]/30 text-white placeholder:text-gray-400 focus:border-[#FFD700] focus:ring-[#FFD700] pr-12"
+                  className="bg-[#0A0E27]/50 border-[#FFD700]/30 text-white placeholder:text-gray-500 focus:border-[#FFD700] focus:ring-[#FFD700] pr-12 h-11 text-lg"
                   required
                   autoComplete="new-password"
                 />
@@ -252,11 +252,11 @@ export default function Signup() {
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-gray-400 hover:text-white"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </Button>
               </div>
               {confirmPassword && password === confirmPassword && (
-                <div className="flex items-center gap-1 text-green-400 text-sm">
+                <div className="flex items-center gap-1 text-green-400 text-sm font-medium animate-in fade-in">
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Passwords match</span>
                 </div>
@@ -266,7 +266,7 @@ export default function Signup() {
             {/* Referral Code Field */}
             <div className="space-y-2">
               <Label htmlFor="referralCode" className="text-[#FFD700] font-semibold flex items-center gap-2">
-                <Gift className="w-4 h-4" />
+                <Gift className="w-4 h-4 text-[#FFD700]" />
                 Referral Code (Optional)
               </Label>
               <Input
@@ -275,10 +275,10 @@ export default function Signup() {
                 placeholder="Enter referral code"
                 value={referralCode}
                 onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                className="bg-black/30 border-[#FFD700]/30 text-white placeholder:text-gray-400 focus:border-[#FFD700] focus:ring-[#FFD700]"
+                className="bg-[#0A0E27]/50 border-[#FFD700]/30 text-white placeholder:text-gray-500 focus:border-[#FFD700] focus:ring-[#FFD700] h-11 text-lg"
               />
               {referralCode && (
-                <p className="text-xs text-[#00F5FF]">
+                <p className="text-xs text-[#00F5FF] animate-pulse">
                   Get extra bonus when using a referral code!
                 </p>
               )}
@@ -286,22 +286,22 @@ export default function Signup() {
 
             {/* Error Message */}
             {error && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-start gap-2">
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3 animate-shake">
                 <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                <p className="text-red-400 text-sm">{error}</p>
+                <p className="text-red-400 text-sm font-medium">{error}</p>
               </div>
             )}
 
             {/* Submit Button */}
             <Button
               type="submit"
-              variant="gold"
-              className="w-full text-lg py-6"
+              variant="premium-gold"
+              className="w-full text-lg py-6 mt-2"
               disabled={signupMutation.isPending}
             >
               {signupMutation.isPending ? (
                 <div className="flex items-center">
-                  <div className="w-4 h-4 border-2 border-[#0A0E27] border-t-transparent rounded-full animate-spin mr-2"></div>
+                  <div className="w-5 h-5 border-2 border-[#0A0E27] border-t-transparent rounded-full animate-spin mr-2"></div>
                   Creating Account...
                 </div>
               ) : (
@@ -313,11 +313,11 @@ export default function Signup() {
             </Button>
 
             {/* Login Link */}
-            <div className="text-center pt-2">
-              <span className="text-white/80">
+            <div className="text-center pt-4">
+              <span className="text-gray-300">
                 Already have an account?{' '}
-                <Link href="/auth/login">
-                  <span className="text-[#FFD700] hover:text-[#FFA500] font-semibold cursor-pointer transition-colors">
+                <Link href="/login">
+                  <span className="text-[#FFD700] hover:text-[#FFA500] font-bold cursor-pointer transition-colors underline underline-offset-4">
                     Sign In
                   </span>
                 </Link>
@@ -325,10 +325,10 @@ export default function Signup() {
             </div>
 
             {/* Partner Signup Link */}
-            <div className="text-center pt-1">
+            <div className="text-center pt-2 border-t border-[#FFD700]/10 mt-4">
               <Link href="/partner/signup">
-                <span className="text-[#00F5FF] hover:text-[#00D4FF] text-sm cursor-pointer transition-colors">
-                  Become a Partner →
+                <span className="text-[#00F5FF] hover:text-[#00D4FF] text-sm font-medium cursor-pointer transition-colors flex items-center justify-center gap-1 hover:gap-2 transition-all">
+                  Become a Partner <span className="text-lg">→</span>
                 </span>
               </Link>
             </div>

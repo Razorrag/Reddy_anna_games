@@ -21,6 +21,9 @@ const buttonVariants = cva(
         gold: "bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-[#0A0E27] hover:from-[#FFA500] hover:to-[#FFD700] shadow-lg shadow-[#FFD700]/20 font-semibold",
         neon: "bg-gradient-to-r from-[#00F5FF] to-[#00D4FF] text-[#0A0E27] hover:from-[#00D4FF] hover:to-[#00F5FF] shadow-lg shadow-[#00F5FF]/30 font-semibold",
         royal: "bg-gradient-to-br from-[#0A0E27] to-[#1a1f3a] text-[#FFD700] border-2 border-[#FFD700]/30 hover:border-[#FFD700] shadow-lg hover:shadow-[#FFD700]/20",
+        // Premium Metallic Variants
+        'premium-gold': "bg-premium-gold text-[#0A0E27] font-bold shadow-glow-gold hover:shadow-gold-glow-strong border border-[#FFD700]/50 relative overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]",
+        'premium-royal': "bg-premium-royal text-[#FFD700] font-bold shadow-glow-royal hover:shadow-royal-lg border border-[#FFD700]/30 relative overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]",
       },
       size: {
         default: "h-10 px-4 py-2",

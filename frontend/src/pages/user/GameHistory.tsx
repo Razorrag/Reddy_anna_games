@@ -111,27 +111,35 @@ export default function GameHistory() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0E27]">
+    <div className="min-h-screen bg-[#0A0E27] relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none fixed">
+        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-[#FFD700]/5 rounded-full blur-3xl animate-pulse-slow"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-[#1E40AF]/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
+      </div>
+
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#1a1f3a] to-[#2a2f4a] border-b border-[#FFD700]/20">
+      <div className="bg-[#1A1F3A]/80 backdrop-blur-md border-b border-[#FFD700]/20 relative z-10">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 onClick={() => setLocation('/game')}
-                className="text-white hover:text-[#FFD700]"
+                className="text-white hover:text-[#FFD700] hover:bg-[#FFD700]/10"
               >
                 ← Back
               </Button>
               <History className="w-8 h-8 text-[#FFD700]" />
-              <h1 className="text-2xl md:text-3xl font-bold text-white">Game History</h1>
+              <h1 className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FFD700] via-[#FFF299] to-[#FFD700] drop-shadow-sm">
+                Game History
+              </h1>
             </div>
             <Button
-              variant="gold"
+              variant="premium-gold"
               onClick={handleExportCSV}
               disabled={games.length === 0}
-              className="gap-2"
+              className="gap-2 shadow-glow-gold"
             >
               <Download className="w-4 h-4" />
               Export CSV
@@ -140,22 +148,22 @@ export default function GameHistory() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="container mx-auto px-4 py-8 max-w-7xl relative z-10">
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <Card className="bg-[#1a1f3a] border-[#FFD700]/30 p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-[#FFD700]/10 rounded-lg">
-                  <Target className="w-6 h-6 text-[#FFD700]" />
+            <Card className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 p-6 hover:bg-[#1A1F3A]/80 transition-all hover:-translate-y-1 shadow-lg">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-[#FFD700]/10 rounded-xl border border-[#FFD700]/20 shadow-[0_0_15px_rgba(255,215,0,0.1)]">
+                  <Target className="w-8 h-8 text-[#FFD700]" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400">Total Games</p>
-                  <p className="text-2xl font-bold text-white">{stats.totalGames}</p>
+                  <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Total Games</p>
+                  <p className="text-3xl font-black text-white">{stats.totalGames}</p>
                 </div>
               </div>
             </Card>
@@ -166,14 +174,14 @@ export default function GameHistory() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
           >
-            <Card className="bg-[#1a1f3a] border-[#FFD700]/30 p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-green-500/10 rounded-lg">
-                  <Award className="w-6 h-6 text-green-500" />
+            <Card className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 p-6 hover:bg-[#1A1F3A]/80 transition-all hover:-translate-y-1 shadow-lg">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-green-500/10 rounded-xl border border-green-500/20 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+                  <Award className="w-8 h-8 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400">Win Rate</p>
-                  <p className="text-2xl font-bold text-white">
+                  <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Win Rate</p>
+                  <p className="text-3xl font-black text-white">
                     {stats.totalGames > 0
                       ? ((stats.gamesWon / stats.totalGames) * 100).toFixed(1)
                       : 0}%
@@ -188,15 +196,15 @@ export default function GameHistory() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.2 }}
           >
-            <Card className="bg-[#1a1f3a] border-[#FFD700]/30 p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-[#00F5FF]/10 rounded-lg">
-                  <IndianRupee className="w-6 h-6 text-[#00F5FF]" />
+            <Card className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 p-6 hover:bg-[#1A1F3A]/80 transition-all hover:-translate-y-1 shadow-lg">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-[#00F5FF]/10 rounded-xl border border-[#00F5FF]/20 shadow-[0_0_15px_rgba(0,245,255,0.1)]">
+                  <IndianRupee className="w-8 h-8 text-[#00F5FF]" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400">Total Wagered</p>
-                  <p className="text-2xl font-bold text-white flex items-center gap-1">
-                    <IndianRupee className="w-5 h-5" />
+                  <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Total Wagered</p>
+                  <p className="text-3xl font-black text-white flex items-center gap-1">
+                    <span className="text-lg text-gray-500">₹</span>
                     {stats.totalWagered.toLocaleString('en-IN')}
                   </p>
                 </div>
@@ -209,21 +217,21 @@ export default function GameHistory() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.3 }}
           >
-            <Card className="bg-[#1a1f3a] border-[#FFD700]/30 p-6">
-              <div className="flex items-center gap-3">
-                <div className={`p-3 rounded-lg ${stats.netProfit >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+            <Card className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 p-6 hover:bg-[#1A1F3A]/80 transition-all hover:-translate-y-1 shadow-lg">
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-xl border shadow-[0_0_15px_rgba(0,0,0,0.1)] ${stats.netProfit >= 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
                   {stats.netProfit >= 0 ? (
-                    <TrendingUp className="w-6 h-6 text-green-500" />
+                    <TrendingUp className="w-8 h-8 text-green-500" />
                   ) : (
-                    <TrendingDown className="w-6 h-6 text-red-500" />
+                    <TrendingDown className="w-8 h-8 text-red-500" />
                   )}
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400">Net Profit/Loss</p>
-                  <p className={`text-2xl font-bold flex items-center gap-1 ${
+                  <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Net P/L</p>
+                  <p className={`text-3xl font-black flex items-center gap-1 ${
                     stats.netProfit >= 0 ? 'text-green-500' : 'text-red-500'
                   }`}>
-                    <IndianRupee className="w-5 h-5" />
+                    <span className="text-lg opacity-70">₹</span>
                     {stats.netProfit >= 0 ? '+' : ''}
                     {stats.netProfit.toLocaleString('en-IN')}
                   </p>
@@ -239,19 +247,19 @@ export default function GameHistory() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.4 }}
         >
-          <Card className="bg-[#1a1f3a] border-[#FFD700]/30 p-6 mb-6">
-            <div className="flex items-center gap-4 mb-4">
+          <Card className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 p-6 mb-8 shadow-lg">
+            <div className="flex items-center gap-4 mb-6 border-b border-[#FFD700]/10 pb-4">
               <Filter className="w-5 h-5 text-[#FFD700]" />
-              <h3 className="text-lg font-semibold text-white">Filters</h3>
+              <h3 className="text-lg font-bold text-white uppercase tracking-wide">Filter History</h3>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-sm text-gray-400 mb-2 block">Outcome</label>
+                <label className="text-sm text-[#FFD700] font-bold mb-2 block uppercase tracking-wide">Outcome</label>
                 <Select value={outcomeFilter} onValueChange={(value: any) => setOutcomeFilter(value)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-[#0A0E27] border-[#FFD700]/30 text-white h-12">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-[#1A1F3A] border-[#FFD700]/30 text-white">
                     <SelectItem value="all">All Outcomes</SelectItem>
                     <SelectItem value="win">Wins Only</SelectItem>
                     <SelectItem value="loss">Losses Only</SelectItem>
@@ -261,12 +269,12 @@ export default function GameHistory() {
               </div>
 
               <div>
-                <label className="text-sm text-gray-400 mb-2 block">Date Range</label>
+                <label className="text-sm text-[#FFD700] font-bold mb-2 block uppercase tracking-wide">Date Range</label>
                 <Select value={dateFilter} onValueChange={(value: any) => setDateFilter(value)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-[#0A0E27] border-[#FFD700]/30 text-white h-12">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-[#1A1F3A] border-[#FFD700]/30 text-white">
                     <SelectItem value="all">All Time</SelectItem>
                     <SelectItem value="today">Today</SelectItem>
                     <SelectItem value="week">This Week</SelectItem>
@@ -284,17 +292,19 @@ export default function GameHistory() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.5 }}
         >
-          <Card className="bg-[#1a1f3a] border-[#FFD700]/30 overflow-hidden">
+          <Card className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 overflow-hidden shadow-2xl">
             {games.length === 0 ? (
-              <div className="p-12 text-center">
-                <History className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                <p className="text-gray-400 text-lg mb-2">No games played yet</p>
-                <p className="text-gray-500 text-sm mb-6">
+              <div className="p-16 text-center bg-[#0A0E27]/30">
+                <div className="w-24 h-24 rounded-full bg-[#FFD700]/5 flex items-center justify-center mx-auto mb-6 border border-[#FFD700]/10">
+                  <History className="w-12 h-12 text-[#FFD700]/30" />
+                </div>
+                <p className="text-gray-300 text-xl font-bold mb-2">No games played yet</p>
+                <p className="text-gray-500 text-sm mb-8">
                   {outcomeFilter !== 'all' || dateFilter !== 'all'
                     ? 'Try adjusting your filters'
                     : 'Start playing to see your game history'}
                 </p>
-                <Button variant="gold" onClick={() => setLocation('/game')} className="gap-2">
+                <Button variant="premium-gold" onClick={() => setLocation('/game')} className="gap-2 shadow-lg">
                   <Target className="w-4 h-4" />
                   Play Now
                 </Button>
@@ -302,16 +312,16 @@ export default function GameHistory() {
             ) : (
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader>
-                    <TableRow className="border-[#FFD700]/20 hover:bg-[#2a2f4a]/50">
-                      <TableHead className="text-[#FFD700]">Date & Time</TableHead>
-                      <TableHead className="text-[#FFD700]">Round ID</TableHead>
-                      <TableHead className="text-[#FFD700]">Bet Side</TableHead>
-                      <TableHead className="text-[#FFD700]">Bet Amount</TableHead>
-                      <TableHead className="text-[#FFD700]">Winner</TableHead>
-                      <TableHead className="text-[#FFD700]">Outcome</TableHead>
-                      <TableHead className="text-[#FFD700]">Payout</TableHead>
-                      <TableHead className="text-[#FFD700]">Profit/Loss</TableHead>
+                  <TableHeader className="bg-[#0A0E27]/80">
+                    <TableRow className="border-[#FFD700]/20 hover:bg-transparent">
+                      <TableHead className="text-[#FFD700] font-bold uppercase tracking-wider">Date & Time</TableHead>
+                      <TableHead className="text-[#FFD700] font-bold uppercase tracking-wider">Round ID</TableHead>
+                      <TableHead className="text-[#FFD700] font-bold uppercase tracking-wider">Bet Side</TableHead>
+                      <TableHead className="text-[#FFD700] font-bold uppercase tracking-wider">Bet Amount</TableHead>
+                      <TableHead className="text-[#FFD700] font-bold uppercase tracking-wider">Winner</TableHead>
+                      <TableHead className="text-[#FFD700] font-bold uppercase tracking-wider">Outcome</TableHead>
+                      <TableHead className="text-[#FFD700] font-bold uppercase tracking-wider">Payout</TableHead>
+                      <TableHead className="text-[#FFD700] font-bold uppercase tracking-wider text-right">P/L</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -320,51 +330,51 @@ export default function GameHistory() {
                       return (
                         <TableRow
                           key={game.id}
-                          className="border-[#FFD700]/10 hover:bg-[#2a2f4a]/50"
+                          className="border-[#FFD700]/10 hover:bg-[#FFD700]/5 transition-colors"
                         >
                           <TableCell className="text-white">
                             <div className="flex flex-col">
-                              <span>{format(new Date(game.createdAt), 'MMM dd, yyyy')}</span>
-                              <span className="text-xs text-gray-500">
+                              <span className="font-bold">{format(new Date(game.createdAt), 'MMM dd, yyyy')}</span>
+                              <span className="text-xs text-gray-400 font-mono">
                                 {format(new Date(game.createdAt), 'hh:mm a')}
                               </span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-gray-400 font-mono text-sm">
-                            #{game.roundId.slice(0, 8)}
+                          <TableCell className="text-gray-400 font-mono text-xs">
+                            #{game.roundId.slice(0, 8)}...
                           </TableCell>
                           <TableCell>
-                            <Badge className={getSideColor(game.betSide)}>
+                            <Badge className={`${getSideColor(game.betSide)} bg-opacity-10 border border-opacity-20 font-bold`}>
                               {game.betSide.toUpperCase()}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-white font-semibold">
+                          <TableCell className="text-white font-bold">
                             <div className="flex items-center gap-1">
-                              <IndianRupee className="w-4 h-4" />
+                              <IndianRupee className="w-3 h-3 text-gray-500" />
                               {game.betAmount.toLocaleString('en-IN')}
                             </div>
                           </TableCell>
                           <TableCell>
                             {game.winner ? (
-                              <Badge className={getSideColor(game.winner)}>
+                              <Badge className={`${getSideColor(game.winner)} bg-opacity-10 border border-opacity-20 font-bold`}>
                                 {game.winner.toUpperCase()}
                               </Badge>
                             ) : (
-                              <span className="text-gray-500">-</span>
+                              <span className="text-gray-600">-</span>
                             )}
                           </TableCell>
                           <TableCell>{getOutcomeBadge(game.outcome, game.payout)}</TableCell>
-                          <TableCell className="text-white font-semibold">
+                          <TableCell className="text-white font-bold">
                             <div className="flex items-center gap-1">
-                              <IndianRupee className="w-4 h-4" />
+                              <IndianRupee className="w-3 h-3 text-gray-500" />
                               {game.payout.toLocaleString('en-IN')}
                             </div>
                           </TableCell>
-                          <TableCell>
-                            <div className={`flex items-center gap-1 font-semibold ${
-                              profitLoss > 0 ? 'text-green-500' : profitLoss < 0 ? 'text-red-500' : 'text-gray-500'
+                          <TableCell className="text-right">
+                            <div className={`flex items-center justify-end gap-1 font-bold text-lg ${
+                              profitLoss > 0 ? 'text-green-400' : profitLoss < 0 ? 'text-red-400' : 'text-gray-500'
                             }`}>
-                              <IndianRupee className="w-4 h-4" />
+                              <span className="text-xs opacity-70">₹</span>
                               {profitLoss > 0 ? '+' : ''}
                               {profitLoss.toLocaleString('en-IN')}
                             </div>
@@ -385,60 +395,72 @@ export default function GameHistory() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.6 }}
-            className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6"
+            className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6"
           >
-            <Card className="bg-[#1a1f3a] border-[#FFD700]/30 p-6">
-              <h4 className="text-lg font-semibold text-white mb-4">Win/Loss Breakdown</h4>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-green-500" />
-                    <span className="text-gray-400">Games Won</span>
+            <Card className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 p-6 shadow-lg">
+              <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                <Target className="w-5 h-5 text-[#FFD700]" />
+                Win/Loss Breakdown
+              </h4>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-[#0A0E27]/50 rounded-lg border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-500/10 rounded-full">
+                      <TrendingUp className="w-4 h-4 text-green-500" />
+                    </div>
+                    <span className="text-gray-300">Games Won</span>
                   </div>
-                  <span className="text-white font-semibold">{stats.gamesWon}</span>
+                  <span className="text-white font-bold text-lg">{stats.gamesWon}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <TrendingDown className="w-4 h-4 text-red-500" />
-                    <span className="text-gray-400">Games Lost</span>
+                <div className="flex items-center justify-between p-3 bg-[#0A0E27]/50 rounded-lg border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-500/10 rounded-full">
+                      <TrendingDown className="w-4 h-4 text-red-500" />
+                    </div>
+                    <span className="text-gray-300">Games Lost</span>
                   </div>
-                  <span className="text-white font-semibold">{stats.gamesLost}</span>
+                  <span className="text-white font-bold text-lg">{stats.gamesLost}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Circle className="w-4 h-4 text-gray-500" />
-                    <span className="text-gray-400">Refunds</span>
+                <div className="flex items-center justify-between p-3 bg-[#0A0E27]/50 rounded-lg border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gray-500/10 rounded-full">
+                      <Circle className="w-4 h-4 text-gray-500" />
+                    </div>
+                    <span className="text-gray-300">Refunds</span>
                   </div>
-                  <span className="text-white font-semibold">
+                  <span className="text-white font-bold text-lg">
                     {stats.totalGames - stats.gamesWon - stats.gamesLost}
                   </span>
                 </div>
               </div>
             </Card>
 
-            <Card className="bg-[#1a1f3a] border-[#FFD700]/30 p-6">
-              <h4 className="text-lg font-semibold text-white mb-4">Financial Summary</h4>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
+            <Card className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 p-6 shadow-lg">
+              <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                <IndianRupee className="w-5 h-5 text-[#FFD700]" />
+                Financial Summary
+              </h4>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-2">
                   <span className="text-gray-400">Total Wagered</span>
-                  <span className="text-white font-semibold flex items-center gap-1">
-                    <IndianRupee className="w-4 h-4" />
+                  <span className="text-white font-bold text-lg flex items-center gap-1">
+                    <span className="text-sm text-gray-600">₹</span>
                     {stats.totalWagered.toLocaleString('en-IN')}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between p-2">
                   <span className="text-gray-400">Total Winnings</span>
-                  <span className="text-green-500 font-semibold flex items-center gap-1">
-                    <IndianRupee className="w-4 h-4" />
+                  <span className="text-green-400 font-bold text-lg flex items-center gap-1">
+                    <span className="text-sm text-green-400/50">₹</span>
                     {stats.totalWinnings.toLocaleString('en-IN')}
                   </span>
                 </div>
-                <div className="border-t border-[#FFD700]/20 pt-3 flex items-center justify-between">
-                  <span className="text-white font-semibold">Net Result</span>
-                  <span className={`font-bold text-xl flex items-center gap-1 ${
-                    stats.netProfit >= 0 ? 'text-green-500' : 'text-red-500'
+                <div className="border-t border-[#FFD700]/20 pt-4 mt-2 flex items-center justify-between">
+                  <span className="text-white font-bold uppercase tracking-wide">Net Result</span>
+                  <span className={`font-black text-2xl flex items-center gap-1 ${
+                    stats.netProfit >= 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
-                    <IndianRupee className="w-5 h-5" />
+                    <span className="text-base opacity-70">₹</span>
                     {stats.netProfit >= 0 ? '+' : ''}
                     {stats.netProfit.toLocaleString('en-IN')}
                   </span>

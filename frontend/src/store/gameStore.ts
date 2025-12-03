@@ -37,6 +37,7 @@ interface GameState {
     side: 'andar' | 'bahar';
     winAmount: number;
   } | null;
+  isConnected: boolean;
   
   // Chip selection
   selectedChip: number;
@@ -54,12 +55,15 @@ interface GameState {
   clearBets: () => void;
   rebetLastRound: () => void;
   doubleBets: () => void;
+  addMyBet: (bet: Bet) => void;
   
   // Card actions
   setJokerCard: (card: Card) => void;
   addAndarCard: (card: Card) => void;
   addBaharCard: (card: Card) => void;
+  addDealtCard: (cardData: { side: 'andar' | 'bahar'; card: Card }) => void;
   clearCards: () => void;
+  clearDealtCards: () => void;
   
   // Timer actions
   setTimeRemaining: (seconds: number) => void;
@@ -68,6 +72,9 @@ interface GameState {
   
   // Stream actions
   setStreamLive: (isLive: boolean) => void;
+  
+  // Connection actions
+  setConnectionStatus: (connected: boolean) => void;
   
   // Winner actions
   showWinner: (side: 'andar' | 'bahar', winAmount: number) => void;
@@ -104,6 +111,7 @@ export const useGameStore = create<GameState>()(
       showWinnerCelebration: false,
       winnerData: null,
       selectedChip: 2500,
+      isConnected: false,
 
       // Basic setters
       setCurrentGame: (game) => set({ currentGame: game }),
@@ -173,6 +181,12 @@ export const useGameStore = create<GameState>()(
             totalBetAmount: 0,
             betHistory: [],
           },
+          myBets: [],
+        })),
+
+      addMyBet: (bet) =>
+        set((state) => ({
+          myBets: [...state.myBets, bet],
         })),
 
       rebetLastRound: () => {
@@ -207,11 +221,21 @@ export const useGameStore = create<GameState>()(
         set((state) => ({
           baharCards: [...state.baharCards, card],
         })),
+      addDealtCard: (cardData) =>
+        set((state) => ({
+          dealtCards: [...state.dealtCards, cardData],
+        })),
+
       clearCards: () =>
         set({
           jokerCard: null,
           andarCards: [],
           baharCards: [],
+        }),
+
+      clearDealtCards: () =>
+        set({
+          dealtCards: [],
         }),
 
       // Timer actions
@@ -224,6 +248,9 @@ export const useGameStore = create<GameState>()(
 
       // Stream actions
       setStreamLive: (isLive) => set({ isStreamLive: isLive }),
+
+      // Connection actions
+      setConnectionStatus: (connected) => set({ isConnected: connected }),
 
       // Winner actions
       showWinner: (side, winAmount) =>

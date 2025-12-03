@@ -84,110 +84,123 @@ export function DashboardPage() {
       value: `${stats?.winRate || '0'}%`,
       change: stats?.totalWins ? `${stats.totalWins} wins` : 'No wins yet',
       icon: Trophy,
-      color: 'text-gold',
-      bgColor: 'bg-gold/10',
+      color: 'text-[#FFD700]',
+      bgColor: 'bg-[#1A1F3A]/60',
     },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gold mb-2">Dashboard</h1>
-        <p className="text-gold/70">Welcome back! Here's your overview</p>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#1A1F3A] to-[#0A0E27] border border-[#FFD700]/20 p-8 shadow-xl">
+        <div className="absolute top-0 right-0 p-4 opacity-10">
+          <Trophy size={120} className="text-[#FFD700]" />
+        </div>
+        <div className="relative z-10">
+          <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FFD700] via-[#FFF299] to-[#FFD700] mb-2 drop-shadow-sm">
+            Dashboard
+          </h1>
+          <p className="text-gray-300 text-lg">Welcome back! Here's your royal overview</p>
+        </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statsCards.map((card) => {
           const Icon = card.icon;
           return (
             <div
               key={card.title}
-              className="bg-royal-medium border border-gold/20 rounded-xl p-6 hover:border-gold/40 transition-all"
+              className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 rounded-2xl p-6 hover:border-[#FFD700]/50 hover:bg-[#1A1F3A]/80 transition-all shadow-lg group"
             >
               <div className="flex items-center justify-between mb-4">
-                <div className={`p-3 rounded-lg ${card.bgColor}`}>
+                <div className={`p-3 rounded-xl bg-gradient-to-br ${card.bgColor} shadow-inner`}>
                   <Icon className={`w-6 h-6 ${card.color}`} />
                 </div>
+                <span className={`text-xs font-bold px-2 py-1 rounded-full bg-[#0A0E27]/50 ${card.color.replace('text-', 'text-')}`}>
+                  {card.change}
+                </span>
               </div>
-              <h3 className="text-gold/70 text-sm mb-1">{card.title}</h3>
-              <p className="text-2xl font-bold text-gold mb-2">{card.value}</p>
-              <p className="text-sm text-gold/50">{card.change}</p>
+              <h3 className="text-gray-400 text-sm font-medium uppercase tracking-wider mb-1">{card.title}</h3>
+              <p className={`text-2xl font-bold ${card.color} drop-shadow-sm`}>{card.value}</p>
             </div>
           );
         })}
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Link href="/game">
-          <a className="block bg-gradient-to-r from-gold/20 to-gold/10 border border-gold/30 rounded-xl p-6 hover:border-gold/50 transition-all group">
-            <PlayCircle className="w-8 h-8 text-gold mb-3 group-hover:scale-110 transition-transform" />
-            <h3 className="text-xl font-bold text-gold mb-2">Play Game</h3>
-            <p className="text-gold/70 text-sm">Join the live Andar Bahar game</p>
+          <a className="block bg-premium-gold border border-[#FFD700]/50 rounded-2xl p-6 shadow-glow-gold hover:shadow-gold-glow-strong hover:-translate-y-1 transition-all group relative overflow-hidden">
+            <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <PlayCircle className="w-12 h-12 text-[#0A0E27] mb-4 group-hover:scale-110 transition-transform drop-shadow-sm" />
+            <h3 className="text-2xl font-bold text-[#0A0E27] mb-1">Play Game</h3>
+            <p className="text-[#0A0E27]/80 text-sm font-medium">Join the live Andar Bahar game</p>
           </a>
         </Link>
 
         <Link href="/deposit">
-          <a className="block bg-royal-medium border border-gold/20 rounded-xl p-6 hover:border-gold/40 transition-all group">
-            <ArrowDownRight className="w-8 h-8 text-green-400 mb-3 group-hover:scale-110 transition-transform" />
-            <h3 className="text-xl font-bold text-gold mb-2">Deposit</h3>
-            <p className="text-gold/70 text-sm">Add funds to your wallet</p>
+          <a className="block bg-premium-royal border border-green-500/30 rounded-2xl p-6 hover:border-green-500 hover:shadow-[0_0_30px_rgba(16,185,129,0.3)] hover:-translate-y-1 transition-all group">
+            <ArrowDownRight className="w-10 h-10 text-green-400 mb-4 group-hover:scale-110 transition-transform drop-shadow-md" />
+            <h3 className="text-xl font-bold text-green-400 mb-2">Deposit</h3>
+            <p className="text-green-400/70 text-sm">Add funds to your wallet</p>
           </a>
         </Link>
 
         <Link href="/withdraw">
-          <a className="block bg-royal-medium border border-gold/20 rounded-xl p-6 hover:border-gold/40 transition-all group">
-            <ArrowUpRight className="w-8 h-8 text-blue-400 mb-3 group-hover:scale-110 transition-transform" />
-            <h3 className="text-xl font-bold text-gold mb-2">Withdraw</h3>
-            <p className="text-gold/70 text-sm">Withdraw your winnings</p>
+          <a className="block bg-premium-royal border border-blue-500/30 rounded-2xl p-6 hover:border-blue-500 hover:shadow-[0_0_30px_rgba(59,130,246,0.3)] hover:-translate-y-1 transition-all group">
+            <ArrowUpRight className="w-10 h-10 text-blue-400 mb-4 group-hover:scale-110 transition-transform drop-shadow-md" />
+            <h3 className="text-xl font-bold text-blue-400 mb-2">Withdraw</h3>
+            <p className="text-blue-400/70 text-sm">Withdraw your winnings</p>
           </a>
         </Link>
       </div>
 
       {/* Recent Activity Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Recent Games */}
-        <div className="bg-royal-medium border border-gold/20 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gold">Recent Games</h2>
+        <div className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 rounded-2xl p-6 shadow-xl">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <PlayCircle className="w-5 h-5 text-[#FFD700]" />
+              Recent Games
+            </h2>
             <Link href="/history">
-              <a className="text-gold/70 hover:text-gold text-sm">View All →</a>
+              <a className="text-[#FFD700] hover:text-[#FFA500] text-sm font-medium hover:underline">View All →</a>
             </Link>
           </div>
           <div className="space-y-3">
             {recentGames?.games?.slice(0, 5).map((game: any) => (
               <div
                 key={game.id}
-                className="flex items-center justify-between p-3 bg-royal-dark/50 rounded-lg border border-gold/10"
+                className="flex items-center justify-between p-4 bg-[#0A0E27]/50 rounded-xl border border-[#FFD700]/10 hover:border-[#FFD700]/30 transition-colors"
               >
-                <div className="flex items-center gap-3">
-                  <div className={`w-2 h-2 rounded-full ${
-                    game.result === 'win' ? 'bg-green-400' : 
-                    game.result === 'loss' ? 'bg-red-400' : 'bg-gray-400'
+                <div className="flex items-center gap-4">
+                  <div className={`w-3 h-3 rounded-full shadow-[0_0_10px_currentColor] ${
+                    game.result === 'win' ? 'bg-green-500 text-green-500' : 
+                    game.result === 'loss' ? 'bg-red-500 text-red-500' : 'bg-gray-500 text-gray-500'
                   }`} />
                   <div>
-                    <p className="text-gold font-medium">Round #{game.roundNumber}</p>
-                    <p className="text-gold/50 text-sm">{new Date(game.createdAt).toLocaleDateString()}</p>
+                    <p className="text-white font-bold">Round #{game.roundNumber}</p>
+                    <p className="text-gray-400 text-xs">{new Date(game.createdAt).toLocaleDateString()}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className={`font-bold ${
+                  <p className={`font-bold text-lg ${
                     game.result === 'win' ? 'text-green-400' : 
                     game.result === 'loss' ? 'text-red-400' : 'text-gray-400'
                   }`}>
                     {game.result === 'win' ? '+' : game.result === 'loss' ? '-' : ''}₹{game.amount}
                   </p>
-                  <p className="text-gold/50 text-sm capitalize">{game.result}</p>
+                  <p className="text-gray-400 text-xs uppercase tracking-wider font-medium">{game.result}</p>
                 </div>
               </div>
             )) || (
-              <div className="text-center py-8 text-gold/50">
-                <p>No recent games</p>
+              <div className="text-center py-12 text-gray-500 bg-[#0A0E27]/30 rounded-xl border border-dashed border-gray-700">
+                <p className="mb-2">No recent games played</p>
                 <Link href="/game">
-                  <a className="text-gold hover:text-gold/80 text-sm mt-2 inline-block">
-                    Start playing →
+                  <a className="text-[#FFD700] hover:text-[#FFA500] text-sm font-bold uppercase tracking-wide border-b border-[#FFD700] pb-0.5">
+                    Start your first game
                   </a>
                 </Link>
               </div>
@@ -196,38 +209,43 @@ export function DashboardPage() {
         </div>
 
         {/* Active Bonuses */}
-        <div className="bg-royal-medium border border-gold/20 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gold">Active Bonuses</h2>
+        <div className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 rounded-2xl p-6 shadow-xl">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <Gift className="w-5 h-5 text-purple-400" />
+              Active Bonuses
+            </h2>
             <Link href="/bonuses">
-              <a className="text-gold/70 hover:text-gold text-sm">View All →</a>
+              <a className="text-[#FFD700] hover:text-[#FFA500] text-sm font-medium hover:underline">View All →</a>
             </Link>
           </div>
           <div className="space-y-3">
             {bonuses?.bonuses?.slice(0, 5).map((bonus: any) => (
               <div
                 key={bonus.id}
-                className="p-4 bg-gradient-to-r from-purple-500/10 to-transparent rounded-lg border border-purple-500/20"
+                className="p-4 bg-gradient-to-r from-purple-500/10 to-transparent rounded-xl border border-purple-500/20 hover:bg-purple-500/20 transition-colors"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Gift className="w-5 h-5 text-purple-400" />
-                    <span className="text-gold font-medium capitalize">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-500/20 rounded-lg">
+                      <Gift className="w-4 h-4 text-purple-400" />
+                    </div>
+                    <span className="text-white font-bold capitalize">
                       {bonus.bonusType} Bonus
                     </span>
                   </div>
-                  <span className="text-purple-400 font-bold">₹{bonus.amount}</span>
+                  <span className="text-purple-400 font-bold text-lg">₹{bonus.amount}</span>
                 </div>
-                <div className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gold/70">Wagering Progress</span>
-                    <span className="text-gold">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs font-medium">
+                    <span className="text-gray-400">Wagering Progress</span>
+                    <span className="text-purple-300">
                       {bonus.wageringCompleted} / {bonus.wageringRequirement}
                     </span>
                   </div>
-                  <div className="w-full bg-royal-dark rounded-full h-2">
+                  <div className="w-full bg-[#0A0E27] rounded-full h-2 border border-purple-500/10">
                     <div
-                      className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all"
+                      className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full shadow-[0_0_10px_rgba(168,85,247,0.5)] transition-all duration-1000"
                       style={{
                         width: `${Math.min(
                           (parseFloat(bonus.wageringCompleted) / parseFloat(bonus.wageringRequirement)) * 100,
@@ -239,11 +257,11 @@ export function DashboardPage() {
                 </div>
               </div>
             )) || (
-              <div className="text-center py-8 text-gold/50">
-                <p>No active bonuses</p>
+              <div className="text-center py-12 text-gray-500 bg-[#0A0E27]/30 rounded-xl border border-dashed border-gray-700">
+                <p className="mb-2">No active bonuses</p>
                 <Link href="/deposit">
-                  <a className="text-gold hover:text-gold/80 text-sm mt-2 inline-block">
-                    Make a deposit to earn bonus →
+                  <a className="text-[#FFD700] hover:text-[#FFA500] text-sm font-bold uppercase tracking-wide border-b border-[#FFD700] pb-0.5">
+                    Deposit to claim bonus
                   </a>
                 </Link>
               </div>
@@ -253,22 +271,26 @@ export function DashboardPage() {
       </div>
 
       {/* Referral Section */}
-      <div className="bg-gradient-to-r from-gold/10 via-royal-medium to-royal-medium border border-gold/30 rounded-xl p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-gold mb-2">Invite Friends & Earn</h2>
-            <p className="text-gold/70 mb-4">
-              Get 5% of your friends' first deposit as bonus
+      <div className="relative overflow-hidden bg-gradient-to-r from-[#FFD700]/10 via-[#1A1F3A] to-[#1A1F3A] border border-[#FFD700]/30 rounded-2xl p-8 shadow-2xl group">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700]/5 rounded-full blur-3xl group-hover:bg-[#FFD700]/10 transition-all"></div>
+        <div className="flex items-center justify-between relative z-10">
+          <div className="max-w-xl">
+            <h2 className="text-2xl font-bold text-[#FFD700] mb-2 flex items-center gap-2">
+              <Users className="w-6 h-6" />
+              Invite Friends & Earn Rewards
+            </h2>
+            <p className="text-gray-300 mb-6 text-lg">
+              Get <span className="text-[#FFD700] font-bold">5%</span> of your friends' first deposit as an instant bonus. Build your royal circle!
             </p>
             <Link href="/referral">
-              <a className="inline-flex items-center gap-2 px-6 py-3 bg-gold text-royal-dark rounded-lg font-semibold hover:bg-gold/90 transition-all">
+              <a className="inline-flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-[#0A0E27] rounded-xl font-bold shadow-lg hover:shadow-[#FFD700]/30 hover:scale-105 transition-all">
                 <Users className="w-5 h-5" />
                 View Referral Program
               </a>
             </Link>
           </div>
-          <div className="hidden lg:block">
-            <Users className="w-24 h-24 text-gold/20" />
+          <div className="hidden lg:block transform rotate-[-10deg] group-hover:rotate-0 transition-transform duration-500">
+            <Users className="w-32 h-32 text-[#FFD700]/20 drop-shadow-[0_0_15px_rgba(255,215,0,0.1)]" />
           </div>
         </div>
       </div>

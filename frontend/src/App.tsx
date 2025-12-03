@@ -2,6 +2,7 @@ import { Route, Switch } from 'wouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'sonner';
+import { WebSocketProvider } from './contexts/WebSocketContext';
 
 // Layouts
 import PlayerLayout from './layouts/PlayerLayout';
@@ -69,7 +70,8 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-royal-gradient">
+      <WebSocketProvider>
+        <div className="min-h-screen bg-royal-gradient">
         {/* Toast notifications with royal theme */}
         <Toaster
           position="top-right"
@@ -314,10 +316,11 @@ function App() {
           {/* 404 - Catch all */}
           <Route component={NotFoundPage} />
         </Switch>
-      </div>
+        </div>
 
-      {/* React Query DevTools - Only in development */}
-      {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+        {/* React Query DevTools - Only in development */}
+        {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+      </WebSocketProvider>
     </QueryClientProvider>
   );
 }

@@ -90,24 +90,24 @@ export function BettingPanel() {
           onClick={() => handleBet('andar')}
           disabled={!canBet || placeBetMutation.isPending || !hasBalance}
           className={`
-            h-32 text-2xl font-bold relative overflow-hidden group
+            h-32 text-2xl font-bold relative overflow-hidden group transition-all duration-300
             ${canBet && hasBalance
-              ? 'bg-gradient-to-br from-red-600 to-red-800 hover:from-red-500 hover:to-red-700'
-              : 'bg-gray-600 cursor-not-allowed'
+              ? 'bg-andar-gradient hover:shadow-andar-glow hover:scale-[1.02]'
+              : 'bg-gray-600 cursor-not-allowed grayscale'
             }
-            border-2 border-red-400/30 shadow-lg
-            ${pendingBet?.side === 'andar' ? 'ring-4 ring-red-400 animate-pulse' : ''}
+            border-2 border-andar shadow-lg
+            ${pendingBet?.side === 'andar' ? 'ring-4 ring-andar animate-pulse' : ''}
           `}
         >
           {/* Glow effect */}
           {canBet && hasBalance && (
-            <div className="absolute inset-0 bg-gradient-to-t from-transparent via-red-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
           )}
           
           <div className="relative z-10">
-            <div className="text-white mb-1">ANDAR</div>
+            <div className="text-white mb-1 drop-shadow-md">ANDAR</div>
             {totalAndarBets > 0 && (
-              <div className="text-red-200 text-sm font-normal">
+              <div className="text-white/90 text-sm font-normal">
                 ₹{totalAndarBets.toLocaleString()}
               </div>
             )}
@@ -123,24 +123,24 @@ export function BettingPanel() {
           onClick={() => handleBet('bahar')}
           disabled={!canBet || placeBetMutation.isPending || !hasBalance}
           className={`
-            h-32 text-2xl font-bold relative overflow-hidden group
+            h-32 text-2xl font-bold relative overflow-hidden group transition-all duration-300
             ${canBet && hasBalance
-              ? 'bg-gradient-to-br from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700'
-              : 'bg-gray-600 cursor-not-allowed'
+              ? 'bg-bahar-gradient hover:shadow-bahar-glow hover:scale-[1.02]'
+              : 'bg-gray-600 cursor-not-allowed grayscale'
             }
-            border-2 border-blue-400/30 shadow-lg
-            ${pendingBet?.side === 'bahar' ? 'ring-4 ring-blue-400 animate-pulse' : ''}
+            border-2 border-bahar shadow-lg
+            ${pendingBet?.side === 'bahar' ? 'ring-4 ring-bahar animate-pulse' : ''}
           `}
         >
           {/* Glow effect */}
           {canBet && hasBalance && (
-            <div className="absolute inset-0 bg-gradient-to-t from-transparent via-blue-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
           )}
           
           <div className="relative z-10">
-            <div className="text-white mb-1">BAHAR</div>
+            <div className="text-white mb-1 drop-shadow-md">BAHAR</div>
             {totalBaharBets > 0 && (
-              <div className="text-blue-200 text-sm font-normal">
+              <div className="text-white/90 text-sm font-normal">
                 ₹{totalBaharBets.toLocaleString()}
               </div>
             )}

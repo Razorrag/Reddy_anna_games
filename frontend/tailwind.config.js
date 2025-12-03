@@ -54,7 +54,7 @@ export default {
           dark: '#2563EB',
         },
         // Card Suit Colors
-        card: {
+        cardSuit: {
           red: '#DC2626',
           black: '#1F2937',
         },
@@ -111,19 +111,23 @@ export default {
       },
       backgroundImage: {
         'royal-gradient': 'linear-gradient(135deg, #0A0E27 0%, #1E2749 100%)',
+        // Premium Metallic Gold: Dark Gold -> Bright Gold -> Dark Gold (Metallic luster)
+        'premium-gold': 'linear-gradient(to bottom, #BF953F, #FCF6BA, #B38728, #FBF5B7, #AA771C)',
+        // Simplified Gold for smaller elements
         'gold-gradient': 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
         'card-gradient': 'linear-gradient(135deg, #2C3A67 0%, #1E2749 100%)',
         'andar-gradient': 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
         'bahar-gradient': 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
-      },
-      borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        // Glossy overlay for buttons
+        'glass-shine': 'linear-gradient(rgba(255,255,255,0.15), rgba(255,255,255,0))',
+        'premium-royal': 'linear-gradient(135deg, #141B3D 0%, #1E2749 100%)',
       },
       boxShadow: {
         'gold': '0 4px 14px 0 rgba(255, 215, 0, 0.39)',
         'gold-lg': '0 10px 40px 0 rgba(255, 215, 0, 0.5)',
+        // Premium glow effects
+        'glow-gold': '0 0 15px rgba(255, 215, 0, 0.6), inset 0 0 10px rgba(255, 215, 0, 0.4)',
+        'glow-royal': '0 0 15px rgba(10, 14, 39, 0.8), inset 0 0 20px rgba(0, 0, 0, 0.5)',
         'gold-glow': '0 0 20px rgba(255, 215, 0, 0.5), 0 0 40px rgba(255, 215, 0, 0.3)',
         'gold-glow-strong': '0 0 30px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 215, 0, 0.5)',
         'gold-shine': '0 0 5px rgba(255, 215, 0, 0.8)',

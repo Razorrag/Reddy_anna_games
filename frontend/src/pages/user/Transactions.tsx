@@ -34,6 +34,9 @@ export default function Transactions() {
     status: statusFilter === 'all' ? undefined : statusFilter,
   });
 
+  // Safe access to the transactions array
+  const transactionList = transactions?.transactions || [];
+
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'deposit':
@@ -53,14 +56,14 @@ export default function Transactions() {
     switch (status) {
       case 'completed':
         return (
-          <Badge variant="success" className="gap-1">
+          <Badge variant="success" className="gap-1 bg-green-500/20 text-green-400 hover:bg-green-500/30 border-green-500/50">
             <CheckCircle className="w-3 h-3" />
             Completed
           </Badge>
         );
       case 'pending':
         return (
-          <Badge variant="secondary" className="gap-1">
+          <Badge variant="secondary" className="gap-1 bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border-yellow-500/50">
             <Clock className="w-3 h-3" />
             Pending
           </Badge>
@@ -68,7 +71,7 @@ export default function Transactions() {
       case 'failed':
       case 'rejected':
         return (
-          <Badge variant="destructive" className="gap-1">
+          <Badge variant="destructive" className="gap-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 border-red-500/50">
             <XCircle className="w-3 h-3" />
             {status === 'failed' ? 'Failed' : 'Rejected'}
           </Badge>
@@ -79,22 +82,22 @@ export default function Transactions() {
   };
 
   const getTypeBadge = (type: string) => {
-    const badges = {
-      deposit: <Badge variant="success">Deposit</Badge>,
-      withdrawal: <Badge variant="destructive">Withdrawal</Badge>,
-      bet: <Badge variant="secondary">Bet</Badge>,
-      win: <Badge variant="success">Win</Badge>,
-      bonus: <Badge variant="neon">Bonus</Badge>,
-      commission: <Badge variant="gold">Commission</Badge>,
+    const badges: Record<string, React.ReactNode> = {
+      deposit: <Badge className="bg-green-500/20 text-green-400 border-green-500/50">Deposit</Badge>,
+      withdrawal: <Badge className="bg-red-500/20 text-red-400 border-red-500/50">Withdrawal</Badge>,
+      bet: <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50">Bet</Badge>,
+      win: <Badge className="bg-premium-gold text-[#0A0E27] font-bold border-none">Win</Badge>,
+      bonus: <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50">Bonus</Badge>,
+      commission: <Badge className="bg-[#FFD700]/20 text-[#FFD700] border-[#FFD700]/50">Commission</Badge>,
     };
-    return badges[type as keyof typeof badges] || <Badge>{type}</Badge>;
+    return badges[type] || <Badge>{type}</Badge>;
   };
 
   const handleExportCSV = () => {
-    if (!transactions || transactions.length === 0) return;
+    if (transactionList.length === 0) return;
 
     const headers = ['Date', 'Type', 'Amount', 'Status', 'Balance After', 'Description'];
-    const rows = transactions.map((t) => [
+    const rows = transactionList.map((t: any) => [
       format(new Date(t.createdAt), 'yyyy-MM-dd HH:mm:ss'),
       t.type,
       t.amount,
@@ -116,32 +119,43 @@ export default function Transactions() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#0A0E27] flex items-center justify-center">
-        <div className="text-white">Loading transactions...</div>
+        <div className="w-12 h-12 border-4 border-[#FFD700] border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0E27]">
+    <div className="min-h-screen bg-[#0A0E27] relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none fixed">
+        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-[#FFD700]/5 rounded-full blur-3xl animate-pulse-slow"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-[#1E40AF]/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
+      </div>
+
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#1a1f3a] to-[#2a2f4a] border-b border-[#FFD700]/20">
+      <div className="bg-[#1A1F3A]/80 backdrop-blur-md border-b border-[#FFD700]/20 relative z-10">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 onClick={() => setLocation('/user/wallet')}
-                className="text-white hover:text-[#FFD700]"
+                className="text-white hover:text-[#FFD700] hover:bg-[#FFD700]/10"
               >
                 ← Back
               </Button>
-              <h1 className="text-2xl md:text-3xl font-bold text-white">Transaction History</h1>
+              <div className="p-2 bg-[#FFD700]/10 rounded-lg border border-[#FFD700]/20">
+                <IndianRupee className="w-6 h-6 text-[#FFD700]" />
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FFD700] via-[#FFF299] to-[#FFD700] drop-shadow-sm">
+                Transaction History
+              </h1>
             </div>
             <Button
-              variant="gold"
+              variant="premium-gold"
               onClick={handleExportCSV}
-              disabled={!transactions || transactions.length === 0}
-              className="gap-2"
+              disabled={transactionList.length === 0}
+              className="gap-2 shadow-glow-gold"
             >
               <Download className="w-4 h-4" />
               Export CSV
@@ -150,26 +164,26 @@ export default function Transactions() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="container mx-auto px-4 py-8 max-w-7xl relative z-10">
         {/* Filters */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <Card className="bg-[#1a1f3a] border-[#FFD700]/30 p-6 mb-6">
-            <div className="flex items-center gap-4 mb-4">
+          <Card className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 p-6 mb-8 shadow-lg">
+            <div className="flex items-center gap-4 mb-6 border-b border-[#FFD700]/10 pb-4">
               <Filter className="w-5 h-5 text-[#FFD700]" />
-              <h3 className="text-lg font-semibold text-white">Filters</h3>
+              <h3 className="text-lg font-bold text-white uppercase tracking-wide">Filter Transactions</h3>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-sm text-gray-400 mb-2 block">Transaction Type</label>
+                <label className="text-sm text-[#FFD700] font-bold mb-2 block uppercase tracking-wide">Transaction Type</label>
                 <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as TransactionType)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-[#0A0E27] border-[#FFD700]/30 text-white h-12">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-[#1A1F3A] border-[#FFD700]/30 text-white">
                     <SelectItem value="all">All Types</SelectItem>
                     <SelectItem value="deposit">Deposits</SelectItem>
                     <SelectItem value="withdrawal">Withdrawals</SelectItem>
@@ -182,12 +196,12 @@ export default function Transactions() {
               </div>
 
               <div>
-                <label className="text-sm text-gray-400 mb-2 block">Status</label>
+                <label className="text-sm text-[#FFD700] font-bold mb-2 block uppercase tracking-wide">Status</label>
                 <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as TransactionStatus)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-[#0A0E27] border-[#FFD700]/30 text-white h-12">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-[#1A1F3A] border-[#FFD700]/30 text-white">
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
@@ -206,11 +220,13 @@ export default function Transactions() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
         >
-          <Card className="bg-[#1a1f3a] border-[#FFD700]/30 overflow-hidden">
-            {!transactions || transactions.length === 0 ? (
-              <div className="p-12 text-center">
-                <Clock className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                <p className="text-gray-400 text-lg">No transactions found</p>
+          <Card className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 overflow-hidden shadow-2xl">
+            {transactionList.length === 0 ? (
+              <div className="p-16 text-center bg-[#0A0E27]/30">
+                <div className="w-24 h-24 rounded-full bg-[#FFD700]/5 flex items-center justify-center mx-auto mb-6 border border-[#FFD700]/10">
+                  <Clock className="w-12 h-12 text-[#FFD700]/30" />
+                </div>
+                <p className="text-gray-300 text-xl font-bold mb-2">No transactions found</p>
                 <p className="text-gray-500 text-sm mt-2">
                   {typeFilter !== 'all' || statusFilter !== 'all'
                     ? 'Try adjusting your filters'
@@ -220,26 +236,26 @@ export default function Transactions() {
             ) : (
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader>
-                    <TableRow className="border-[#FFD700]/20 hover:bg-[#2a2f4a]/50">
-                      <TableHead className="text-[#FFD700]">Date & Time</TableHead>
-                      <TableHead className="text-[#FFD700]">Type</TableHead>
-                      <TableHead className="text-[#FFD700]">Amount</TableHead>
-                      <TableHead className="text-[#FFD700]">Status</TableHead>
-                      <TableHead className="text-[#FFD700]">Balance After</TableHead>
-                      <TableHead className="text-[#FFD700]">Description</TableHead>
+                  <TableHeader className="bg-[#0A0E27]/80">
+                    <TableRow className="border-[#FFD700]/20 hover:bg-transparent">
+                      <TableHead className="text-[#FFD700] font-bold uppercase tracking-wider">Date & Time</TableHead>
+                      <TableHead className="text-[#FFD700] font-bold uppercase tracking-wider">Type</TableHead>
+                      <TableHead className="text-[#FFD700] font-bold uppercase tracking-wider">Amount</TableHead>
+                      <TableHead className="text-[#FFD700] font-bold uppercase tracking-wider">Status</TableHead>
+                      <TableHead className="text-[#FFD700] font-bold uppercase tracking-wider">Balance After</TableHead>
+                      <TableHead className="text-[#FFD700] font-bold uppercase tracking-wider">Description</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {transactions.map((transaction) => (
+                    {transactionList.map((transaction: any) => (
                       <TableRow
                         key={transaction.id}
-                        className="border-[#FFD700]/10 hover:bg-[#2a2f4a]/50"
+                        className="border-[#FFD700]/10 hover:bg-[#FFD700]/5 transition-colors"
                       >
                         <TableCell className="text-white">
                           <div className="flex flex-col">
-                            <span>{format(new Date(transaction.createdAt), 'MMM dd, yyyy')}</span>
-                            <span className="text-xs text-gray-500">
+                            <span className="font-bold">{format(new Date(transaction.createdAt), 'MMM dd, yyyy')}</span>
+                            <span className="text-xs text-gray-400 font-mono">
                               {format(new Date(transaction.createdAt), 'hh:mm a')}
                             </span>
                           </div>
@@ -251,8 +267,8 @@ export default function Transactions() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1 font-semibold">
-                            <IndianRupee className="w-4 h-4" />
+                          <div className="flex items-center gap-1 font-bold text-lg">
+                            <IndianRupee className="w-4 h-4 text-gray-500" />
                             <span
                               className={
                                 ['deposit', 'win', 'bonus', 'commission'].includes(transaction.type)
@@ -266,9 +282,9 @@ export default function Transactions() {
                           </div>
                         </TableCell>
                         <TableCell>{getStatusBadge(transaction.status)}</TableCell>
-                        <TableCell className="text-white">
+                        <TableCell className="text-white font-semibold">
                           <div className="flex items-center gap-1">
-                            <IndianRupee className="w-4 h-4" />
+                            <IndianRupee className="w-4 h-4 text-gray-500" />
                             {transaction.balanceAfter.toLocaleString('en-IN')}
                           </div>
                         </TableCell>
@@ -285,44 +301,44 @@ export default function Transactions() {
         </motion.div>
 
         {/* Summary Stats */}
-        {transactions && transactions.length > 0 && (
+        {transactionList.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.2 }}
-            className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4"
+            className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6"
           >
-            <Card className="bg-[#1a1f3a] border-[#FFD700]/30 p-4">
-              <p className="text-sm text-gray-400 mb-1">Total Transactions</p>
-              <p className="text-2xl font-bold text-white">{transactions.length}</p>
+            <Card className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 p-6 hover:bg-[#1A1F3A]/80 transition-all shadow-lg">
+              <p className="text-sm text-gray-400 font-bold uppercase tracking-wider mb-2">Total Transactions</p>
+              <p className="text-3xl font-black text-white">{transactionList.length}</p>
             </Card>
-            <Card className="bg-[#1a1f3a] border-[#FFD700]/30 p-4">
-              <p className="text-sm text-gray-400 mb-1">Total Deposits</p>
-              <p className="text-2xl font-bold text-green-500 flex items-center gap-1">
-                <IndianRupee className="w-5 h-5" />
-                {transactions
-                  .filter((t) => t.type === 'deposit' && t.status === 'completed')
-                  .reduce((sum, t) => sum + t.amount, 0)
+            <Card className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 p-6 hover:bg-[#1A1F3A]/80 transition-all shadow-lg">
+              <p className="text-sm text-gray-400 font-bold uppercase tracking-wider mb-2">Total Deposits</p>
+              <p className="text-2xl font-black text-green-400 flex items-center gap-1">
+                <span className="text-lg text-green-400/50">₹</span>
+                {transactionList
+                  .filter((t: any) => t.type === 'deposit' && t.status === 'completed')
+                  .reduce((sum: number, t: any) => sum + t.amount, 0)
                   .toLocaleString('en-IN')}
               </p>
             </Card>
-            <Card className="bg-[#1a1f3a] border-[#FFD700]/30 p-4">
-              <p className="text-sm text-gray-400 mb-1">Total Withdrawals</p>
-              <p className="text-2xl font-bold text-red-500 flex items-center gap-1">
-                <IndianRupee className="w-5 h-5" />
-                {transactions
-                  .filter((t) => t.type === 'withdrawal' && t.status === 'completed')
-                  .reduce((sum, t) => sum + t.amount, 0)
+            <Card className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 p-6 hover:bg-[#1A1F3A]/80 transition-all shadow-lg">
+              <p className="text-sm text-gray-400 font-bold uppercase tracking-wider mb-2">Total Withdrawals</p>
+              <p className="text-2xl font-black text-red-400 flex items-center gap-1">
+                <span className="text-lg text-red-400/50">₹</span>
+                {transactionList
+                  .filter((t: any) => t.type === 'withdrawal' && t.status === 'completed')
+                  .reduce((sum: number, t: any) => sum + t.amount, 0)
                   .toLocaleString('en-IN')}
               </p>
             </Card>
-            <Card className="bg-[#1a1f3a] border-[#FFD700]/30 p-4">
-              <p className="text-sm text-gray-400 mb-1">Total Winnings</p>
-              <p className="text-2xl font-bold text-[#FFD700] flex items-center gap-1">
-                <IndianRupee className="w-5 h-5" />
-                {transactions
-                  .filter((t) => t.type === 'win' && t.status === 'completed')
-                  .reduce((sum, t) => sum + t.amount, 0)
+            <Card className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 p-6 hover:bg-[#1A1F3A]/80 transition-all shadow-lg">
+              <p className="text-sm text-gray-400 font-bold uppercase tracking-wider mb-2">Total Winnings</p>
+              <p className="text-2xl font-black text-[#FFD700] flex items-center gap-1">
+                <span className="text-lg text-[#FFD700]/50">₹</span>
+                {transactionList
+                  .filter((t: any) => t.type === 'win' && t.status === 'completed')
+                  .reduce((sum: number, t: any) => sum + t.amount, 0)
                   .toLocaleString('en-IN')}
               </p>
             </Card>

@@ -125,25 +125,33 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0E27]">
+    <div className="min-h-screen bg-[#0A0E27] relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none fixed">
+        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-[#FFD700]/5 rounded-full blur-3xl animate-pulse-slow"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-[#1E40AF]/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
+      </div>
+
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#1a1f3a] to-[#2a2f4a] border-b border-[#FFD700]/20">
+      <div className="bg-[#1A1F3A]/80 backdrop-blur-md border-b border-[#FFD700]/20 relative z-10">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 onClick={() => setLocation('/game')}
-                className="text-white hover:text-[#FFD700]"
+                className="text-white hover:text-[#FFD700] hover:bg-[#FFD700]/10"
               >
                 ← Back to Game
               </Button>
-              <h1 className="text-2xl md:text-3xl font-bold text-white">My Profile</h1>
+              <h1 className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FFD700] via-[#FFF299] to-[#FFD700] drop-shadow-sm">
+                My Profile
+              </h1>
             </div>
             <Button
               variant="ghost"
               onClick={handleLogout}
-              className="text-white hover:text-red-400 gap-2"
+              className="text-red-400 hover:text-red-300 hover:bg-red-500/10 gap-2"
             >
               <LogOut className="w-4 h-4" />
               Logout
@@ -152,38 +160,43 @@ export default function Profile() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="container mx-auto px-4 py-8 max-w-4xl relative z-10">
         {/* Profile Header Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <Card className="bg-gradient-to-br from-[#1a1f3a] to-[#2a2f4a] border-[#FFD700]/30 p-8">
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+          <Card className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 p-8 shadow-xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700]/5 rounded-full blur-3xl group-hover:bg-[#FFD700]/10 transition-all"></div>
+            
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-8 relative z-10">
               {/* Avatar */}
               <div className="flex-shrink-0">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#FFD700] to-[#FFA500] flex items-center justify-center">
-                  <User className="w-12 h-12 text-[#0A0E27]" />
+                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#FFD700] to-[#FFA500] flex items-center justify-center shadow-glow-gold border-4 border-[#0A0E27]">
+                  <User className="w-16 h-16 text-[#0A0E27]" />
                 </div>
               </div>
 
               {/* User Info */}
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h2 className="text-2xl font-bold text-white">{profile.name}</h2>
+              <div className="flex-1 space-y-3">
+                <div className="flex items-center gap-4 flex-wrap">
+                  <h2 className="text-3xl font-bold text-white">{profile.name}</h2>
                   {getStatusBadge(profile.status)}
                   {getVerificationBadge(profile.isVerified)}
                 </div>
-                <p className="text-gray-400">Member since {new Date(profile.createdAt).toLocaleDateString()}</p>
-                <div className="flex items-center gap-4 flex-wrap text-sm text-gray-400">
-                  <span className="flex items-center gap-1">
-                    <Phone className="w-4 h-4" />
+                <p className="text-gray-400 flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Member since {new Date(profile.createdAt).toLocaleDateString()}
+                </p>
+                <div className="flex items-center gap-6 flex-wrap text-sm text-gray-300 bg-[#0A0E27]/50 p-4 rounded-xl border border-[#FFD700]/10">
+                  <span className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-[#FFD700]" />
                     {profile.phone}
                   </span>
                   {profile.email && (
-                    <span className="flex items-center gap-1">
-                      <Mail className="w-4 h-4" />
+                    <span className="flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-[#FFD700]" />
                       {profile.email}
                     </span>
                   )}
@@ -193,9 +206,9 @@ export default function Profile() {
               {/* Edit Button */}
               {!isEditing && (
                 <Button
-                  variant="gold"
+                  variant="premium-gold"
                   onClick={handleEdit}
-                  className="gap-2"
+                  className="gap-2 shadow-lg"
                 >
                   <Edit2 className="w-4 h-4" />
                   Edit Profile
@@ -211,50 +224,56 @@ export default function Profile() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
-            className="mt-6"
+            className="mt-8"
           >
-            <Card className="bg-[#1a1f3a] border-[#FFD700]/30 p-6">
-              <h3 className="text-xl font-semibold text-white mb-6">Edit Information</h3>
-              <div className="space-y-4">
+            <Card className="bg-[#1A1F3A]/80 backdrop-blur-md border border-[#FFD700]/30 p-8 shadow-2xl">
+              <h3 className="text-xl font-bold text-[#FFD700] mb-6 flex items-center gap-2">
+                <Edit2 className="w-5 h-5" />
+                Edit Information
+              </h3>
+              <div className="space-y-6">
                 <div>
-                  <Label htmlFor="name" className="text-white">Full Name</Label>
+                  <Label htmlFor="name" className="text-white font-medium mb-2 block">Full Name</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="mt-1"
+                    className="bg-[#0A0E27] border-[#FFD700]/30 text-white h-12"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="email" className="text-white">Email (Optional)</Label>
+                  <Label htmlFor="email" className="text-white font-medium mb-2 block">Email (Optional)</Label>
                   <Input
                     id="email"
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="mt-1"
+                    className="bg-[#0A0E27] border-[#FFD700]/30 text-white h-12"
                     placeholder="your.email@example.com"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="phone" className="text-gray-400">Phone Number</Label>
+                  <Label htmlFor="phone" className="text-gray-400 font-medium mb-2 block">Phone Number</Label>
                   <Input
                     id="phone"
                     value={formData.phone}
                     disabled
-                    className="mt-1 opacity-50 cursor-not-allowed"
+                    className="bg-[#0A0E27]/50 border-[#FFD700]/10 text-gray-400 cursor-not-allowed h-12"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Phone number cannot be changed</p>
+                  <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                    <Shield className="w-3 h-3" />
+                    Phone number cannot be changed for security reasons
+                  </p>
                 </div>
 
-                <div className="flex gap-3 pt-4">
+                <div className="flex gap-4 pt-4 border-t border-[#FFD700]/10">
                   <Button
-                    variant="gold"
+                    variant="premium-gold"
                     onClick={handleSave}
                     disabled={updateProfile.isPending}
-                    className="gap-2"
+                    className="gap-2 min-w-[140px]"
                   >
                     <Save className="w-4 h-4" />
                     {updateProfile.isPending ? 'Saving...' : 'Save Changes'}
@@ -263,7 +282,7 @@ export default function Profile() {
                     variant="ghost"
                     onClick={handleCancel}
                     disabled={updateProfile.isPending}
-                    className="gap-2 text-white hover:text-red-400"
+                    className="gap-2 text-gray-400 hover:text-white"
                   >
                     <X className="w-4 h-4" />
                     Cancel
@@ -279,30 +298,30 @@ export default function Profile() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
-          className="mt-6"
+          className="mt-8"
         >
-          <Card className="bg-[#1a1f3a] border-[#FFD700]/30 p-6">
-            <h3 className="text-xl font-semibold text-white mb-6">Account Statistics</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-[#FFD700] mb-2">
+          <Card className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 p-8 shadow-lg">
+            <h3 className="text-xl font-bold text-white mb-8 border-l-4 border-[#FFD700] pl-4">Account Statistics</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="text-center p-6 bg-[#0A0E27]/50 rounded-2xl border border-[#FFD700]/10">
+                <div className="text-4xl font-black text-[#FFD700] mb-2 drop-shadow-md">
                   {profile.statistics?.gamesPlayed || 0}
                 </div>
-                <div className="text-gray-400 text-sm">Games Played</div>
+                <div className="text-gray-400 text-sm font-bold uppercase tracking-wider">Games Played</div>
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-[#00F5FF] mb-2">
+              <div className="text-center p-6 bg-[#0A0E27]/50 rounded-2xl border border-[#FFD700]/10">
+                <div className="text-4xl font-black text-[#00F5FF] mb-2 drop-shadow-md">
                   {profile.statistics?.gamesWon || 0}
                 </div>
-                <div className="text-gray-400 text-sm">Games Won</div>
+                <div className="text-gray-400 text-sm font-bold uppercase tracking-wider">Games Won</div>
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-white mb-2">
+              <div className="text-center p-6 bg-[#0A0E27]/50 rounded-2xl border border-[#FFD700]/10">
+                <div className="text-4xl font-black text-white mb-2 drop-shadow-md">
                   {profile.statistics?.gamesPlayed
                     ? ((profile.statistics.gamesWon / profile.statistics.gamesPlayed) * 100).toFixed(1)
                     : 0}%
                 </div>
-                <div className="text-gray-400 text-sm">Win Rate</div>
+                <div className="text-gray-400 text-sm font-bold uppercase tracking-wider">Win Rate</div>
               </div>
             </div>
           </Card>
@@ -313,39 +332,23 @@ export default function Profile() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.3 }}
-          className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4"
+          className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6"
         >
-          <Card
-            className="bg-[#1a1f3a] border-[#FFD700]/30 p-6 cursor-pointer hover:border-[#FFD700] transition-colors"
-            onClick={() => setLocation('/user/wallet')}
-          >
-            <h4 className="text-lg font-semibold text-white mb-2">Wallet</h4>
-            <p className="text-gray-400 text-sm">Manage your balance and transactions</p>
-          </Card>
-
-          <Card
-            className="bg-[#1a1f3a] border-[#FFD700]/30 p-6 cursor-pointer hover:border-[#FFD700] transition-colors"
-            onClick={() => setLocation('/user/referrals')}
-          >
-            <h4 className="text-lg font-semibold text-white mb-2">Referrals</h4>
-            <p className="text-gray-400 text-sm">Invite friends and earn rewards</p>
-          </Card>
-
-          <Card
-            className="bg-[#1a1f3a] border-[#FFD700]/30 p-6 cursor-pointer hover:border-[#FFD700] transition-colors"
-            onClick={() => setLocation('/user/bonuses')}
-          >
-            <h4 className="text-lg font-semibold text-white mb-2">Bonuses</h4>
-            <p className="text-gray-400 text-sm">View your active bonuses</p>
-          </Card>
-
-          <Card
-            className="bg-[#1a1f3a] border-[#FFD700]/30 p-6 cursor-pointer hover:border-[#FFD700] transition-colors"
-            onClick={() => setLocation('/user/settings')}
-          >
-            <h4 className="text-lg font-semibold text-white mb-2">Settings</h4>
-            <p className="text-gray-400 text-sm">Manage your account preferences</p>
-          </Card>
+          {[
+            { title: 'Wallet', desc: 'Manage your balance and transactions', path: '/user/wallet' },
+            { title: 'Referrals', desc: 'Invite friends and earn rewards', path: '/user/referrals' },
+            { title: 'Bonuses', desc: 'View your active bonuses', path: '/user/bonuses' },
+            { title: 'Settings', desc: 'Manage your account preferences', path: '/user/settings' }
+          ].map((item) => (
+            <Card
+              key={item.title}
+              className="bg-[#1A1F3A]/60 backdrop-blur-md border border-[#FFD700]/20 p-6 cursor-pointer hover:border-[#FFD700] hover:bg-[#1A1F3A]/80 transition-all hover:-translate-y-1 group"
+              onClick={() => setLocation(item.path)}
+            >
+              <h4 className="text-lg font-bold text-white mb-2 group-hover:text-[#FFD700] transition-colors">{item.title}</h4>
+              <p className="text-gray-400 text-sm">{item.desc}</p>
+            </Card>
+          ))}
         </motion.div>
       </div>
     </div>
