@@ -13,6 +13,7 @@ import PartnerLayout from './layouts/PartnerLayout';
 import LandingPage from './pages/public/LandingPage';
 import Login from './pages/auth/Login';
 import Signup from './pages/auth/Signup';
+import AdminLogin from './pages/auth/AdminLogin';
 import PartnerLoginPage from './pages/auth/PartnerLoginPage';
 import PartnerSignupPage from './pages/auth/PartnerSignupPage';
 
@@ -87,6 +88,7 @@ function App() {
           <Route path="/" component={LandingPage} />
           <Route path="/login" component={Login} />
           <Route path="/signup" component={Signup} />
+          <Route path="/admin/login" component={AdminLogin} />
           <Route path="/partner/login" component={PartnerLoginPage} />
           <Route path="/partner/signup" component={PartnerSignupPage} />
 

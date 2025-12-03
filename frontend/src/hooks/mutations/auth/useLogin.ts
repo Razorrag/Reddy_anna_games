@@ -6,7 +6,8 @@ import { toast } from 'sonner';
 import type { User, ApiResponse } from '../../../types';
 
 interface LoginData {
-  phone: string;
+  phone?: string;
+  username?: string;
   password: string;
 }
 
