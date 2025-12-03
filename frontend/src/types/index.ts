@@ -318,3 +318,8 @@ export interface Notification {
   isRead: boolean;
   createdAt: string;
 }
+// ============================================
+// Export API Response Types
+// ============================================
+
+export * from './api-responses';
