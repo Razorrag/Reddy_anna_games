@@ -15,8 +15,22 @@ interface RegisterData {
   referralCode?: string;
 }
 
+// Phone-based registration (frontend format)
+interface PhoneRegisterData {
+  phone: string;
+  name: string;
+  password: string;
+  referralCode?: string;
+}
+
 interface LoginData {
   username: string;
+  password: string;
+}
+
+// Phone-based login (frontend format)
+interface PhoneLoginData {
+  phone: string;
   password: string;
 }
 
@@ -24,6 +38,24 @@ export class AuthService {
   private readonly JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
   private readonly JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
   private readonly SALT_ROUNDS = 12;
+
+  // Map database user to frontend format
+  private mapUserToFrontend(user: any) {
+    return {
+      id: user.id,
+      phone: user.phoneNumber || user.username,  // Frontend expects 'phone'
+      name: user.fullName || user.username,      // Frontend expects 'name'
+      email: user.email,
+      role: user.role,
+      mainBalance: parseFloat(user.balance),     // Frontend expects 'mainBalance'
+      bonusBalance: parseFloat(user.bonusBalance),
+      referralCode: user.referralCode,
+      referredBy: user.referredBy,
+      isActive: user.status === 'active',        // Frontend expects boolean 'isActive'
+      createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : user.createdAt,
+      updatedAt: user.updatedAt instanceof Date ? user.updatedAt.toISOString() : user.updatedAt,
+    };
+  }
 
   // Generate unique referral code
   private async generateReferralCode(): Promise<string> {
@@ -111,15 +143,48 @@ export class AuthService {
       .where(eq(users.id, referrerId));
   }
 
-  // Register new user
+  // Phone-based registration (matches frontend format)
+  async registerWithPhone(data: PhoneRegisterData) {
+    // Validate input
+    if (!data.phone || data.phone.length < 6) {
+      throw new AppError('Phone number must be at least 6 characters', 400);
+    }
+
+    if (!data.password || data.password.length < 6) {
+      throw new AppError('Password must be at least 6 characters', 400);
+    }
+
+    // Check if phone exists (check username field since we use phone as username)
+    const [existingUser] = await db.select()
+      .from(users)
+      .where(eq(users.username, data.phone))
+      .limit(1);
+
+    if (existingUser) {
+      throw new AppError('Phone number already registered', 409);
+    }
+
+    // Auto-generate email from phone
+    const email = `${data.phone.replace(/[^0-9]/g, '')}@reddyanna.local`;
+
+    // Convert to standard RegisterData format
+    const registerData: RegisterData = {
+      username: data.phone,      // Use phone as username
+      email: email,              // Auto-generated email
+      password: data.password,
+      phoneNumber: data.phone,   // Also store in phoneNumber field
+      fullName: data.name,       // name → fullName
+      referralCode: data.referralCode,
+    };
+
+    return this.register(registerData);
+  }
+
+  // Register new user (internal method)
   async register(data: RegisterData) {
     // Validate input
     if (!data.username || data.username.length < 3) {
       throw new AppError('Username must be at least 3 characters', 400);
-    }
-
-    if (!data.email || !data.email.includes('@')) {
-      throw new AppError('Valid email is required', 400);
     }
 
     if (!data.password || data.password.length < 6) {
@@ -134,16 +199,6 @@ export class AuthService {
 
     if (existingUser) {
       throw new AppError('Username already exists', 409);
-    }
-
-    // Check if email exists
-    const [existingEmail] = await db.select()
-      .from(users)
-      .where(eq(users.email, data.email))
-      .limit(1);
-
-    if (existingEmail) {
-      throw new AppError('Email already exists', 409);
     }
 
     // Hash password
@@ -183,31 +238,37 @@ export class AuthService {
     // Create signup bonus
     await this.createSignupBonus(user.id);
 
+    // Fetch updated user with bonus
+    const [updatedUser] = await db.select().from(users).where(eq(users.id, user.id)).limit(1);
+
     // Create referral bonus if referred
     if (referrerId) {
       await this.createReferralBonus(referrerId, user.id, data.referralCode!);
     }
 
     // Generate token
-    const token = this.generateToken(user.id, user.role);
+    const token = this.generateToken(updatedUser.id, updatedUser.role);
 
     return {
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        phoneNumber: user.phoneNumber,
-        fullName: user.fullName,
-        role: user.role,
-        referralCode: user.referralCode,
-        balance: user.balance,
-        bonusBalance: user.bonusBalance,
-      },
+      user: this.mapUserToFrontend(updatedUser),  // Map to frontend format
       token,
     };
   }
 
-  // Login user
+  // Phone-based login (matches frontend format)
+  async loginWithPhone(data: PhoneLoginData) {
+    if (!data.phone || !data.password) {
+      throw new AppError('Phone and password are required', 400);
+    }
+
+    // Convert to standard LoginData format
+    return this.login({
+      username: data.phone,  // Use phone as username
+      password: data.password,
+    });
+  }
+
+  // Login user (internal method)
   async login(data: LoginData) {
     if (!data.username || !data.password) {
       throw new AppError('Username and password are required', 400);
@@ -245,18 +306,7 @@ export class AuthService {
 
     // Prepare response with suspension warning if applicable
     const response: any = {
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        phoneNumber: user.phoneNumber,
-        fullName: user.fullName,
-        role: user.role,
-        status: user.status,
-        referralCode: user.referralCode,
-        balance: user.balance,
-        bonusBalance: user.bonusBalance,
-      },
+      user: this.mapUserToFrontend(user),  // Map to frontend format
       token,
     };
 
@@ -279,21 +329,15 @@ export class AuthService {
         .where(eq(users.id, decoded.userId))
         .limit(1);
 
-      if (!user || user.status !== 'active') {
-        throw new AppError('Invalid token or inactive user', 401);
+      if (!user) {
+        throw new AppError('User not found', 404);
       }
 
-      return {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        phoneNumber: user.phoneNumber,
-        fullName: user.fullName,
-        role: user.role,
-        referralCode: user.referralCode,
-        balance: user.balance,
-        bonusBalance: user.bonusBalance,
-      };
+      if (user.status === 'banned') {
+        throw new AppError('Account is banned', 403);
+      }
+
+      return this.mapUserToFrontend(user);  // Map to frontend format
     } catch (error) {
       if (error instanceof jwt.JsonWebTokenError) {
         throw new AppError('Invalid token', 401);
@@ -316,7 +360,7 @@ export class AuthService {
     
     const newToken = this.generateToken(dbUser.id, dbUser.role);
     
-    return { token: newToken, user };
+    return { token: newToken, user: this.mapUserToFrontend(dbUser) };
   }
 }
 

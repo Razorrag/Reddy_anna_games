@@ -3,7 +3,7 @@ import { authService } from '../services/auth.service';
 import { AuthRequest } from '../middleware/auth';
 
 export class AuthController {
-  // Register new user
+  // Register new user (standard endpoint with username/email)
   async register(req: Request, res: Response, next: NextFunction) {
     try {
       const { username, email, password, phoneNumber, fullName, referralCode } = req.body;
@@ -26,16 +26,47 @@ export class AuthController {
     }
   }
 
-  // Login user
+  // Signup with phone (frontend format - alias for register)
+  async signup(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { phone, name, password, referralCode } = req.body;
+
+      const result = await authService.registerWithPhone({
+        phone,
+        name,
+        password,
+        referralCode,
+      });
+
+      res.status(201).json({
+        message: 'Registration successful',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Login user (standard endpoint with username)
   async login(req: Request, res: Response, next: NextFunction) {
     try {
-      const { username, password } = req.body;
+      const { username, password, phone } = req.body;
 
-      const result = await authService.login({ username, password });
+      // Support both username and phone login
+      const loginIdentifier = phone || username;
+      
+      if (!loginIdentifier) {
+        return res.status(400).json({ error: 'Username or phone required' });
+      }
+
+      const result = await authService.login({ 
+        username: loginIdentifier, 
+        password 
+      });
 
       res.json({
         message: 'Login successful',
-        ...result,
+        data: result,
       });
     } catch (error) {
       next(error);

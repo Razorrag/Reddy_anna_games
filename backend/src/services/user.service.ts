@@ -70,7 +70,7 @@ export class UserService {
     return userWithoutPassword;
   }
 
-  // Get user balance
+  // Get user balance (mapped to frontend format)
   async getBalance(userId: string) {
     const user = await db.query.users.findFirst({
       where: eq(users.id, userId),
@@ -84,8 +84,9 @@ export class UserService {
       throw new AppError('User not found', 404);
     }
 
+    // Frontend expects 'mainBalance' not 'balance'
     return {
-      balance: parseFloat(user.balance),
+      mainBalance: parseFloat(user.balance),      // Mapped to frontend format
       bonusBalance: parseFloat(user.bonusBalance),
       totalBalance: parseFloat(user.balance) + parseFloat(user.bonusBalance),
     };

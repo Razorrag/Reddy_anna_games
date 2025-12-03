@@ -5,10 +5,13 @@ import { authController } from '../controllers/auth.controller';
 
 const router = Router();
 
-// POST /api/auth/register - Register new user
+// POST /api/auth/register - Register new user (username/email format)
 router.post('/register', asyncHandler(authController.register.bind(authController)));
 
-// POST /api/auth/login - Login user
+// POST /api/auth/signup - Signup with phone (frontend format)
+router.post('/signup', asyncHandler(authController.signup.bind(authController)));
+
+// POST /api/auth/login - Login user (supports both username and phone)
 router.post('/login', asyncHandler(authController.login.bind(authController)));
 
 // POST /api/auth/logout - Logout user
