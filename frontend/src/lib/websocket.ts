@@ -57,8 +57,8 @@ class WebSocketService {
       }
     });
 
-    // Game events
-    this.socket.on('round:start', (data) => {
+    // Game events - Updated to match backend event names
+    this.socket.on('game:round_started', (data) => {
       console.log('🎮 Round started:', data);
       useGameStore.getState().setCurrentRound(data.round);
       useGameStore.getState().setBetting(true);
@@ -66,12 +66,12 @@ class WebSocketService {
       useGameStore.getState().clearDealtCards();
     });
 
-    this.socket.on('round:betting_closed', (data) => {
+    this.socket.on('game:betting_closed', (data) => {
       console.log('⏰ Betting closed:', data);
       useGameStore.getState().setBetting(false);
     });
 
-    this.socket.on('round:card_dealt', (data) => {
+    this.socket.on('game:card_dealt', (data) => {
       console.log('🎴 Card dealt:', data);
       useGameStore.getState().addDealtCard({
         card: data.card,
@@ -79,19 +79,23 @@ class WebSocketService {
       });
     });
 
-    this.socket.on('round:complete', (data) => {
-      console.log('🏁 Round complete:', data);
+    this.socket.on('game:winner_determined', (data) => {
+      console.log('🏁 Winner determined:', data);
       useGameStore.getState().setCurrentRound(data.round);
       useGameStore.getState().setBetting(false);
       
       // Show winner celebration if user won
       const myBets = useGameStore.getState().myBets;
-      const winningSide = data.round.winingSide;
+      const winningSide = data.winningSide;
       const hasWinningBet = myBets.some(bet => bet.side === winningSide);
       
       if (hasWinningBet) {
         console.log('🎉 You won!');
       }
+    });
+
+    this.socket.on('game:payouts_processed', (data) => {
+      console.log('💰 Payouts processed:', data);
     });
 
     this.socket.on('bet:placed', (data) => {
@@ -104,7 +108,7 @@ class WebSocketService {
       }
     });
 
-    this.socket.on('balance:updated', (data) => {
+    this.socket.on('user:balance_updated', (data) => {
       console.log('💵 Balance updated:', data);
       const userId = useAuthStore.getState().user?.id;
       

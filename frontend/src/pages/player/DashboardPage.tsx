@@ -16,9 +16,9 @@ export function DashboardPage() {
   const { data: stats } = useQuery({
     queryKey: ['user-stats'],
     queryFn: async () => {
-      const response = await fetch('/api/users/me/statistics', {
+      const response = await fetch('/api/users/statistics', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         },
       });
       if (!response.ok) throw new Error('Failed to fetch stats');
@@ -30,9 +30,9 @@ export function DashboardPage() {
   const { data: recentGames } = useQuery({
     queryKey: ['recent-games'],
     queryFn: async () => {
-      const response = await fetch('/api/games/history?limit=5', {
+      const response = await fetch('/api/users/game-history?limit=5', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         },
       });
       if (!response.ok) throw new Error('Failed to fetch games');
@@ -46,7 +46,7 @@ export function DashboardPage() {
     queryFn: async () => {
       const response = await fetch('/api/bonuses/active', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         },
       });
       if (!response.ok) throw new Error('Failed to fetch bonuses');

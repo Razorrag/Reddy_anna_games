@@ -27,7 +27,7 @@ export const useSignup = () => {
 
   return useMutation({
     mutationFn: async (data: SignupData) => {
-      const response = await api.post<ApiResponse<SignupResponse>>('/auth/signup', data);
+      const response = await api.post<ApiResponse<SignupResponse>>('/api/auth/signup', data);
       return response.data.data!;
     },
 

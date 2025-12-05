@@ -21,7 +21,7 @@ export const usePlaceBet = () => {
 
   return useMutation({
     mutationFn: async (data: PlaceBetData) => {
-      const response = await api.post<ApiResponse<Bet>>('/api/game/bet', data);
+      const response = await api.post<ApiResponse<Bet>>('/bets', data);
       return response.data.data!;
     },
 

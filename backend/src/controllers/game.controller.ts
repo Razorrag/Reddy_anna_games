@@ -143,6 +143,60 @@ export class GameController {
       next(error);
     }
   }
+
+  // Undo last bet
+  async undoLastBet(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.id;
+      const { roundId } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const result = await gameService.undoLastBet(userId, roundId);
+
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get last round bets
+  async getLastRoundBets(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.id;
+      const { gameId } = req.params;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const bets = await gameService.getLastRoundBets(userId, gameId);
+
+      res.json({ bets });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Rebet previous round
+  async rebetPreviousRound(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.id;
+      const { gameId, currentRoundId } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const result = await gameService.rebetPreviousRound(userId, gameId, currentRoundId);
+
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const gameController = new GameController();

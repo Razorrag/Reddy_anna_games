@@ -24,6 +24,17 @@ export default {
           light: '#3D4E7C',
           lighter: '#4F6191',
         },
+        // Legacy Violet/Purple Theme
+        violet: {
+          darkest: '#1E1B4B',
+          dark: '#312E81',
+          DEFAULT: '#8B5CF6',
+          light: '#A78BFA',
+          lighter: '#C4B5FD',
+        },
+        purple: {
+          gradient: 'linear-gradient(135deg, #8B5CF6, #3B82F6)',
+        },
         gold: {
           darkest: '#8B7500',
           darker: '#B8990D',
@@ -121,6 +132,10 @@ export default {
         // Glossy overlay for buttons
         'glass-shine': 'linear-gradient(rgba(255,255,255,0.15), rgba(255,255,255,0))',
         'premium-royal': 'linear-gradient(135deg, #141B3D 0%, #1E2749 100%)',
+        // Legacy Violet Gradients
+        'violet-gradient': 'linear-gradient(135deg, #1E1B4B, #312E81, #4C1D95)',
+        'purple-blue-gradient': 'linear-gradient(135deg, #8B5CF6, #3B82F6)',
+        'violet-dark-gradient': 'linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4C1D95 100%)',
       },
       boxShadow: {
         'gold': '0 4px 14px 0 rgba(255, 215, 0, 0.39)',
@@ -139,6 +154,9 @@ export default {
         'neon-cyan-strong': '0 0 30px rgba(0, 245, 255, 0.9), 0 0 60px rgba(0, 245, 255, 0.6)',
         'andar-glow': '0 0 20px rgba(239, 68, 68, 0.6), 0 0 40px rgba(239, 68, 68, 0.3)',
         'bahar-glow': '0 0 20px rgba(59, 130, 246, 0.6), 0 0 40px rgba(59, 130, 246, 0.3)',
+        // Legacy Violet Glows
+        'violet-glow': '0 0 20px rgba(139, 92, 246, 0.6), 0 0 40px rgba(139, 92, 246, 0.4)',
+        'purple-glow': '0 0 15px rgba(139, 92, 246, 0.8), inset 0 0 10px rgba(139, 92, 246, 0.4)',
       },
       animation: {
         'spin-slow': 'spin 3s linear infinite',
@@ -159,6 +177,19 @@ export default {
         'flip': 'flip 0.6s ease-in-out',
         'card-deal': 'cardDeal 0.5s ease-out',
         'win-celebration': 'winCelebration 0.8s ease-out',
+        // Legacy Animations
+        'card-fly': 'cardFly 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        'confetti-fall': 'confettiFall 3s linear forwards',
+        'pulse-gold-legacy': 'pulseGoldLegacy 2s ease-in-out infinite',
+        'glow-pulse': 'glowPulse 2s ease-in-out infinite',
+        'bounce-in': 'bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+        'scale-rotate': 'scaleRotate 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+        'chip-fly': 'chipFly 0.8s ease-out forwards',
+        'card-flip': 'cardFlip 0.6s ease-in-out',
+        'timer-urgent': 'timerUrgent 1s infinite',
+        'slide-in-left': 'slideInLeft 0.5s ease-out',
+        'slide-in-right': 'slideInRight 0.5s ease-out',
+        'shimmer-legacy': 'shimmerLegacy 2s ease-in-out infinite',
       },
       keyframes: {
         shine: {
@@ -235,6 +266,133 @@ export default {
           '100%': {
             transform: 'scale(1) rotate(0deg)',
             opacity: '1',
+          },
+        },
+        // Legacy Animation Keyframes
+        cardFly: {
+          '0%': {
+            transform: 'translateY(-100vh) rotate(0deg) scale(0.5)',
+            opacity: '0',
+          },
+          '50%': {
+            transform: 'translateY(0) rotate(180deg) scale(1.2)',
+            opacity: '1',
+          },
+          '100%': {
+            transform: 'translateY(0) rotate(360deg) scale(1)',
+            opacity: '1',
+          },
+        },
+        confettiFall: {
+          '0%': {
+            transform: 'translateY(-100vh) rotate(0deg)',
+            opacity: '1',
+          },
+          '100%': {
+            transform: 'translateY(100vh) rotate(720deg)',
+            opacity: '0',
+          },
+        },
+        pulseGoldLegacy: {
+          '0%, 100%': {
+            boxShadow: '0 0 10px rgba(255, 215, 0, 0.5)',
+          },
+          '50%': {
+            boxShadow: '0 0 30px rgba(255, 215, 0, 1)',
+          },
+        },
+        glowPulse: {
+          '0%, 100%': {
+            boxShadow: '0 0 5px rgba(255, 209, 0, 0.5)',
+          },
+          '50%': {
+            boxShadow: '0 0 20px rgba(255, 209, 0, 0.8), 0 0 30px rgba(255, 209, 0, 0.6)',
+          },
+        },
+        bounceIn: {
+          '0%': {
+            transform: 'scale(0.3)',
+            opacity: '0',
+          },
+          '50%': {
+            transform: 'scale(1.1)',
+          },
+          '70%': {
+            transform: 'scale(0.9)',
+          },
+          '100%': {
+            transform: 'scale(1)',
+            opacity: '1',
+          },
+        },
+        scaleRotate: {
+          '0%': {
+            transform: 'scale(0.5) rotate(-12deg)',
+            opacity: '0',
+          },
+          '50%': {
+            transform: 'scale(1.1) rotate(6deg)',
+          },
+          '100%': {
+            transform: 'scale(1) rotate(0deg)',
+            opacity: '1',
+          },
+        },
+        chipFly: {
+          '0%': {
+            transform: 'translate(0, 0) scale(1)',
+            opacity: '1',
+          },
+          '100%': {
+            transform: 'translate(var(--fly-x, 100px), var(--fly-y, -100px)) scale(0.5)',
+            opacity: '0',
+          },
+        },
+        cardFlip: {
+          '0%': {
+            transform: 'rotateY(0deg)',
+          },
+          '50%': {
+            transform: 'rotateY(90deg)',
+          },
+          '100%': {
+            transform: 'rotateY(0deg)',
+          },
+        },
+        timerUrgent: {
+          '0%, 100%': {
+            transform: 'scale(1)',
+          },
+          '50%': {
+            transform: 'scale(1.1)',
+          },
+        },
+        slideInLeft: {
+          from: {
+            transform: 'translateX(-100px)',
+            opacity: '0',
+          },
+          to: {
+            transform: 'translateX(0)',
+            opacity: '1',
+          },
+        },
+        slideInRight: {
+          from: {
+            transform: 'translateX(100px)',
+            opacity: '0',
+          },
+          to: {
+            transform: 'translateX(0)',
+            opacity: '1',
+          },
+        },
+        shimmerLegacy: {
+          '0%': {
+            backgroundPosition: '-200% 0',
+          },
+          '100%': {
+            backgroundPosition: '200% 0',
           },
         },
       },

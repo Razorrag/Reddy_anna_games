@@ -98,19 +98,34 @@ const BettingStrip: React.FC<BettingStripProps> = ({
             touchAction: 'manipulation'
           }}
         >
-          <div className="flex items-center justify-between h-full px-2 py-1">
+          <div className="flex items-center justify-between h-full px-2 py-1 gap-2">
             <div className="flex-1 text-left">
               <div className="text-white font-bold text-lg">ANDAR</div>
               <div className="space-y-0.5 mt-1">
                 <div className="text-yellow-200 text-xs font-medium">
-                  R1: ₹{betTotals.r1Andar.toLocaleString('en-IN')}
+                  Round 1: ₹{betTotals.r1Andar.toLocaleString('en-IN')}
                 </div>
                 {(currentRound?.roundNumber || 1) >= 2 && (
                   <div className="text-yellow-300 text-xs font-medium">
-                    R2: ₹{betTotals.r2Andar.toLocaleString('en-IN')}
+                    Round 2: ₹{betTotals.r2Andar.toLocaleString('en-IN')}
                   </div>
                 )}
               </div>
+            </div>
+            {/* Latest Card Display */}
+            <div className="flex-shrink-0">
+              {gameState.andarCards && gameState.andarCards.length > 0 ? (
+                <div className="flex flex-col items-center">
+                  <div className="text-2xl font-bold text-white drop-shadow-lg">
+                    {gameState.andarCards[gameState.andarCards.length - 1].display}
+                  </div>
+                  <div className="text-[10px] text-gray-400 mt-0.5">
+                    ({gameState.andarCards.length})
+                  </div>
+                </div>
+              ) : (
+                <div className="text-gray-400 text-xs">-</div>
+              )}
             </div>
           </div>
         </button>
@@ -126,7 +141,7 @@ const BettingStrip: React.FC<BettingStripProps> = ({
           ) : (
             <div className="flex flex-col items-center justify-center gap-1">
               <div className="text-gold/50 text-2xl font-bold">?</div>
-              <div className="text-gold/40 text-[10px] font-semibold">JOKER</div>
+              <div className="text-gold/40 text-[10px] font-semibold">OPENING</div>
             </div>
           )}
         </div>
@@ -159,16 +174,31 @@ const BettingStrip: React.FC<BettingStripProps> = ({
             touchAction: 'manipulation'
           }}
         >
-          <div className="flex items-center justify-between h-full px-2 py-1">
+          <div className="flex items-center justify-between h-full px-2 py-1 gap-2">
+            {/* Latest Card Display */}
+            <div className="flex-shrink-0">
+              {gameState.baharCards && gameState.baharCards.length > 0 ? (
+                <div className="flex flex-col items-center">
+                  <div className="text-2xl font-bold text-white drop-shadow-lg">
+                    {gameState.baharCards[gameState.baharCards.length - 1].display}
+                  </div>
+                  <div className="text-[10px] text-gray-400 mt-0.5">
+                    ({gameState.baharCards.length})
+                  </div>
+                </div>
+              ) : (
+                <div className="text-gray-400 text-xs">-</div>
+              )}
+            </div>
             <div className="flex-1 text-right">
               <div className="text-white font-bold text-lg">BAHAR</div>
               <div className="space-y-0.5 mt-1">
                 <div className="text-yellow-200 text-xs font-medium">
-                  R1: ₹{betTotals.r1Bahar.toLocaleString('en-IN')}
+                  Round 1: ₹{betTotals.r1Bahar.toLocaleString('en-IN')}
                 </div>
                 {(currentRound?.roundNumber || 1) >= 2 && (
                   <div className="text-yellow-300 text-xs font-medium">
-                    R2: ₹{betTotals.r2Bahar.toLocaleString('en-IN')}
+                    Round 2: ₹{betTotals.r2Bahar.toLocaleString('en-IN')}
                   </div>
                 )}
               </div>

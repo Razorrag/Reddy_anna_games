@@ -1,4 +1,5 @@
-import { Link } from 'wouter';
+import { useEffect } from 'react';
+import { Link, useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import { 
   Sparkles, 
@@ -13,8 +14,27 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useAuthStore } from '@/store/authStore';
+import { LanguageSelector, About, GameRules, WhatsAppFloatButton } from '@/components/landing';
 
 export default function LandingPage() {
+  const [, setLocation] = useLocation();
+  const { isAuthenticated, user } = useAuthStore();
+
+  // Auth-aware landing: redirect authenticated users to their home
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const role = (user as any).role || 'player';
+      if (role === 'admin' || role === 'super_admin') {
+        setLocation('/admin');
+      } else if (role === 'partner') {
+        setLocation('/partner/dashboard');
+      } else {
+        setLocation('/game');
+      }
+    }
+  }, [isAuthenticated, user, setLocation]);
+
   const features = [
     {
       icon: Zap,
@@ -84,10 +104,11 @@ export default function LandingPage() {
                 <Sparkles className="h-6 w-6 text-[#0A0E27]" />
               </div>
               <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#FFD700] via-[#FFF299] to-[#FFD700] drop-shadow-sm">
-                Reddy Anna
+                Raju Gari Kossu
               </span>
             </div>
             <div className="flex items-center space-x-4">
+              <LanguageSelector />
               <Link href="/login">
                 <Button variant="ghost" className="text-[#FFD700] hover:text-[#FFA500] hover:bg-[#FFD700]/10 font-medium transition-colors">
                   Login
@@ -217,7 +238,7 @@ export default function LandingPage() {
         <div className="container mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-white mb-4">
-              Why Choose Reddy Anna?
+              Why Choose Raju Gari Kossu?
             </h2>
             <p className="text-royal-300">
               The most trusted and feature-rich gaming platform in India
@@ -246,6 +267,12 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* About Section */}
+      <About />
+
+      {/* Game Rules Section */}
+      <GameRules />
+
       {/* CTA Section */}
       <section className="py-20 px-4 bg-gradient-to-r from-gold-600 to-gold-500">
         <div className="container mx-auto text-center">
@@ -273,7 +300,7 @@ export default function LandingPage() {
             <div>
               <div className="flex items-center space-x-2 mb-4">
                 <Sparkles className="h-6 w-6 text-gold-400" />
-                <span className="text-xl font-bold text-gold-400">Reddy Anna</span>
+                <span className="text-xl font-bold text-gold-400">Raju Gari Kossu</span>
               </div>
               <p className="text-royal-400">
                 India's premier real-time gaming platform with instant payouts and live streaming.
@@ -315,11 +342,14 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="border-t border-gold-500/20 mt-8 pt-8 text-center text-royal-400">
-            <p>&copy; 2024 Reddy Anna Gaming. All rights reserved.</p>
+            <p>&copy; 2024 Raju Gari Kossu Gaming. All rights reserved.</p>
             <p className="mt-2 text-sm">Play responsibly. 18+ only.</p>
           </div>
         </div>
       </footer>
+
+      {/* WhatsApp Floating Button */}
+      <WhatsAppFloatButton />
     </div>
   );
 }

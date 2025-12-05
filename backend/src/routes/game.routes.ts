@@ -32,4 +32,13 @@ router.get('/:gameId/history', asyncHandler(gameController.getGameHistory.bind(g
 // GET /api/games/:gameId/statistics - Get game statistics
 router.get('/:gameId/statistics', asyncHandler(gameController.getGameStatistics.bind(gameController)));
 
+// POST /api/games/undo-bet - Undo last bet
+router.post('/undo-bet', authenticate, asyncHandler(gameController.undoLastBet.bind(gameController)));
+
+// GET /api/games/:gameId/last-bets - Get last round bets
+router.get('/:gameId/last-bets', authenticate, asyncHandler(gameController.getLastRoundBets.bind(gameController)));
+
+// POST /api/games/rebet - Rebet previous round
+router.post('/rebet', authenticate, asyncHandler(gameController.rebetPreviousRound.bind(gameController)));
+
 export default router;

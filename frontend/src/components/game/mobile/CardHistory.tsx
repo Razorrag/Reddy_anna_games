@@ -8,6 +8,7 @@
  */
 
 import React from 'react';
+import { useGameHistory } from '@/hooks/queries/game/useGameHistory';
 
 interface GameResult {
   id: string;
@@ -27,15 +28,37 @@ const CardHistory: React.FC<CardHistoryProps> = ({
   onGameClick,
   className = ''
 }) => {
-  // Mock recent results - will be replaced with actual API data
-  const recentResults: GameResult[] = [
-    { id: '1', winner: 'andar', roundNumber: 1, jokerCard: 'A♠' },
-    { id: '2', winner: 'bahar', roundNumber: 2, jokerCard: 'K♥' },
-    { id: '3', winner: 'andar', roundNumber: 1, jokerCard: '7♦' },
-    { id: '4', winner: 'bahar', roundNumber: 3, jokerCard: 'Q♣' },
-    { id: '5', winner: 'andar', roundNumber: 2, jokerCard: '10♠' },
-    { id: '6', winner: 'bahar', roundNumber: 1, jokerCard: 'J♥' },
-  ];
+  // Fetch real game history from API
+  const { data: historyData, isLoading } = useGameHistory({ limit: 6 });
+
+  // Transform API data to GameResult format
+  const recentResults: GameResult[] = React.useMemo(() => {
+    if (!historyData || historyData.length === 0) return [];
+    
+    return historyData.map((game) => ({
+      id: game.id,
+      winner: game.winningSide,
+      roundNumber: game.roundNumber,
+      jokerCard: game.jokerCard,
+      winningCard: game.winningCard
+    }));
+  }, [historyData]);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className={`flex items-center ${className}`}>
+        <div className="flex gap-2">
+          {[...Array(6)].map((_, i) => (
+            <div
+              key={i}
+              className="w-10 h-10 rounded-full bg-gray-700/50 animate-pulse"
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   // Extract card rank without suit
   const getCardRank = (card: string): string => {

@@ -1,36 +1,35 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../../../lib/api';
-import { queryKeys } from '../../../lib/queryClient';
-import type { GameRound, PaginatedResponse, ApiResponse } from '../../../types';
+import { api } from '@/lib/api';
 
-interface GameHistoryFilters {
-  status?: 'complete' | 'cancelled';
-  startDate?: string;
-  endDate?: string;
-  page?: number;
-  limit?: number;
+interface GameHistoryItem {
+  id: string;
+  roundNumber: number;
+  jokerCard: string;
+  winningCard?: string;
+  winningSide: 'andar' | 'bahar';
+  createdAt: string;
+  status: string;
 }
 
-/**
- * Fetch paginated game history
- */
-export const useGameHistory = (filters?: GameHistoryFilters) => {
-  return useQuery({
-    queryKey: queryKeys.game.history(filters),
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (filters?.status) params.append('status', filters.status);
-      if (filters?.startDate) params.append('startDate', filters.startDate);
-      if (filters?.endDate) params.append('endDate', filters.endDate);
-      if (filters?.page) params.append('page', filters.page.toString());
-      if (filters?.limit) params.append('limit', filters.limit.toString());
+interface UseGameHistoryOptions {
+  limit?: number;
+  enabled?: boolean;
+}
 
-      const { data } = await api.get<ApiResponse<PaginatedResponse<GameRound>>>(
-        `/api/game/history?${params}`
+export function useGameHistory(options: UseGameHistoryOptions = {}) {
+  const { limit = 10, enabled = true } = options;
+
+  return useQuery({
+    queryKey: ['gameHistory', limit],
+    queryFn: async () => {
+      const response = await api.get<GameHistoryItem[]>(
+        `/game/history?limit=${limit}`
       );
-      return data.data!;
+      return response.data;
     },
-    staleTime: 60 * 1000, // 1 minute
-    placeholderData: (previousData) => previousData,
+    enabled,
+    staleTime: 30000, // 30 seconds
+    refetchInterval: 60000, // Refetch every minute
+    retry: 2,
   });
-};
+}

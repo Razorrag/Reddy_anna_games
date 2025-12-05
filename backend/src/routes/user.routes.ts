@@ -26,6 +26,20 @@ router.get('/transactions', asyncHandler(userController.getTransactionHistory.bi
 // GET /api/users/referrals - Get referred users
 router.get('/referrals', asyncHandler(userController.getReferredUsers.bind(userController)));
 
+// GET /api/users/game-history - Get user game history
+router.get('/game-history', asyncHandler(async (req, res) => {
+  const userId = (req as any).user.id;
+  const limit = parseInt(req.query.limit as string) || 10;
+  
+  const { gameService } = await import('../services/game.service');
+  const history = await gameService.getUserGameHistory(userId, limit);
+  
+  res.json({
+    success: true,
+    data: { games: history }
+  });
+}));
+
 // POST /api/users/deactivate - Deactivate account
 router.post('/deactivate', asyncHandler(userController.deactivateAccount.bind(userController)));
 

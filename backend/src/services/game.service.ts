@@ -332,6 +332,171 @@ export class GameService {
 
     return round;
   }
+
+  async getUserGameHistory(userId: string, limit: number = 10) {
+    const history = await db.query.gameHistory.findMany({
+      where: eq(gameHistory.userId, userId),
+      orderBy: [desc(gameHistory.createdAt)],
+      limit,
+    });
+
+    return history;
+  }
+
+  async undoLastBet(userId: string, roundId: string) {
+    // Find the user's most recent bet in this round
+    const lastBet = await db.query.bets.findFirst({
+      where: and(
+        eq(bets.userId, userId),
+        eq(bets.roundId, roundId),
+        eq(bets.status, 'pending')
+      ),
+      orderBy: [desc(bets.createdAt)],
+    });
+
+    if (!lastBet) {
+      throw new AppError('No bet to undo', 404);
+    }
+
+    // Check if round is still in betting phase
+    const round = await db.query.gameRounds.findFirst({
+      where: eq(gameRounds.id, roundId),
+    });
+
+    if (!round || round.status !== 'betting') {
+      throw new AppError('Cannot undo bet - betting phase has ended', 400);
+    }
+
+    const betAmount = parseFloat(lastBet.amount);
+
+    // Refund the bet amount and delete the bet
+    await db.transaction(async (tx) => {
+      // Refund to user balance
+      await tx.update(users).set({
+        balance: sql`balance + ${betAmount}`,
+      }).where(eq(users.id, userId));
+
+      // Update round totals
+      const sideField = lastBet.betSide === 'andar' ? 'totalAndarBets' : 'totalBaharBets';
+      await tx.update(gameRounds).set({
+        [sideField]: sql`${gameRounds[sideField]} - ${betAmount}`,
+        totalBetAmount: sql`${gameRounds.totalBetAmount} - ${betAmount}`,
+      }).where(eq(gameRounds.id, roundId));
+
+      // Delete the bet
+      await tx.delete(bets).where(eq(bets.id, lastBet.id));
+    });
+
+    return { 
+      success: true, 
+      refundedAmount: betAmount,
+      message: 'Bet undone successfully'
+    };
+  }
+
+  async getLastRoundBets(userId: string, gameId: string) {
+    // Get the last completed round for this game
+    const lastRound = await db.query.gameRounds.findFirst({
+      where: and(
+        eq(gameRounds.gameId, gameId),
+        eq(gameRounds.status, 'completed')
+      ),
+      orderBy: [desc(gameRounds.createdAt)],
+    });
+
+    if (!lastRound) {
+      return [];
+    }
+
+    // Get user's bets from that round
+    const lastBets = await db.query.bets.findMany({
+      where: and(
+        eq(bets.userId, userId),
+        eq(bets.roundId, lastRound.id)
+      ),
+    });
+
+    return lastBets.map(bet => ({
+      side: bet.betSide,
+      amount: parseFloat(bet.amount),
+      roundNumber: bet.roundNumber,
+    }));
+  }
+
+  async rebetPreviousRound(userId: string, gameId: string, currentRoundId: string) {
+    // Get last round bets
+    const lastBets = await this.getLastRoundBets(userId, gameId);
+
+    if (lastBets.length === 0) {
+      throw new AppError('No previous bets to repeat', 404);
+    }
+
+    // Check current round is in betting phase
+    const currentRound = await db.query.gameRounds.findFirst({
+      where: eq(gameRounds.id, currentRoundId),
+    });
+
+    if (!currentRound || currentRound.status !== 'betting') {
+      throw new AppError('Cannot place bets - betting phase not active', 400);
+    }
+
+    // Get user balance
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    // Calculate total bet amount
+    const totalBetAmount = lastBets.reduce((sum, bet) => sum + bet.amount, 0);
+
+    if (parseFloat(user.balance) < totalBetAmount) {
+      throw new AppError('Insufficient balance', 400);
+    }
+
+    // Place all bets atomically
+    const placedBets = await db.transaction(async (tx) => {
+      const newBets = [];
+
+      for (const lastBet of lastBets) {
+        // Deduct from user balance
+        await tx.update(users).set({
+          balance: sql`balance - ${lastBet.amount}`,
+        }).where(eq(users.id, userId));
+
+        // Update round totals
+        const sideField = lastBet.side === 'andar' ? 'totalAndarBets' : 'totalBaharBets';
+        await tx.update(gameRounds).set({
+          [sideField]: sql`${gameRounds[sideField]} + ${lastBet.amount}`,
+          totalBetAmount: sql`${gameRounds.totalBetAmount} + ${lastBet.amount}`,
+        }).where(eq(gameRounds.id, currentRoundId));
+
+        // Create new bet
+        const [newBet] = await tx.insert(bets).values({
+          userId,
+          gameId,
+          roundId: currentRoundId,
+          betSide: lastBet.side,
+          amount: lastBet.amount.toFixed(2),
+          roundNumber: lastBet.roundNumber,
+          status: 'pending',
+        }).returning();
+
+        newBets.push(newBet);
+      }
+
+      return newBets;
+    });
+
+    return {
+      success: true,
+      betsPlaced: placedBets.length,
+      totalAmount: totalBetAmount,
+      bets: placedBets,
+    };
+  }
 }
 
 // Import users for payout processing

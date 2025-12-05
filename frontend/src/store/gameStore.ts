@@ -33,6 +33,7 @@ interface GameState {
   // UI state
   isStreamLive: boolean;
   showWinnerCelebration: boolean;
+  showFlash: boolean;
   winnerData: {
     side: 'andar' | 'bahar';
     winAmount: number;
@@ -76,6 +77,12 @@ interface GameState {
   // Connection actions
   setConnectionStatus: (connected: boolean) => void;
   
+  // Betting control
+  setBetting: (canBet: boolean) => void;
+  
+  // Flash screen
+  setShowFlash: (show: boolean) => void;
+  
   // Winner actions
   showWinner: (side: 'andar' | 'bahar', winAmount: number) => void;
   hideWinner: () => void;
@@ -109,6 +116,7 @@ export const useGameStore = create<GameState>()(
       roundPhase: 'waiting',
       isStreamLive: false,
       showWinnerCelebration: false,
+      showFlash: true,
       winnerData: null,
       selectedChip: 2500,
       isConnected: false,
@@ -251,6 +259,15 @@ export const useGameStore = create<GameState>()(
 
       // Connection actions
       setConnectionStatus: (connected) => set({ isConnected: connected }),
+
+      // Betting control
+      setBetting: (canBet) =>
+        set((state) => ({
+          betting: { ...state.betting, canPlaceBet: canBet },
+        })),
+
+      // Flash screen
+      setShowFlash: (show) => set({ showFlash: show }),
 
       // Winner actions
       showWinner: (side, winAmount) =>
