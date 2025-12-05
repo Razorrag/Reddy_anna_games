@@ -40,7 +40,19 @@ export default function PartnerLayout({ children }: { children: React.ReactNode 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [location, setLocation] = useLocation();
-  const { user, logout } = useAuthStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated || !user) {
+    setLocation('/partner/login');
+    return null;
+  }
+
+  // Only allow partner users
+  if (user.role !== 'partner') {
+    setLocation('/login');
+    return null;
+  }
 
   const handleLogout = () => {
     logout();

@@ -50,12 +50,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [location, setLocation] = useLocation();
-  const { user, logout } = useAuthStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
   const { unreadCount, setIsOpen } = useNotificationStore();
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated || !user) {
+    setLocation('/admin/login');
+    return null;
+  }
+
+  // Only allow admin users
+  if (user.role !== 'admin') {
+    setLocation('/login');
+    return null;
+  }
 
   const handleLogout = () => {
     logout();
-    setLocation('/login');
+    setLocation('/admin/login');
   };
 
   const getBreadcrumbs = () => {
