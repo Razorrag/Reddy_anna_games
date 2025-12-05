@@ -13,7 +13,10 @@ router.use(authorize('admin'));
 // Mount notification routes
 router.use('/notifications', notificationRoutes);
 
-// GET /api/admin/dashboard - Get admin dashboard stats
+// GET /api/admin/dashboard/stats - Get admin dashboard stats
+router.get('/dashboard/stats', asyncHandler(adminController.getDashboard.bind(adminController)));
+
+// GET /api/admin/dashboard - Alias for backward compatibility
 router.get('/dashboard', asyncHandler(adminController.getDashboard.bind(adminController)));
 
 // GET /api/admin/users - Get all users
@@ -42,6 +45,24 @@ router.put('/transactions/:id', asyncHandler(adminController.updateTransaction.b
 
 // GET /api/admin/analytics - Get analytics data
 router.get('/analytics', asyncHandler(adminController.getAnalytics.bind(adminController)));
+
+// GET /api/admin/deposits - Get deposit requests
+router.get('/deposits', asyncHandler(adminController.getTransactions.bind(adminController)));
+
+// POST /api/admin/deposits/:id/approve - Approve deposit
+router.post('/deposits/:id/approve', asyncHandler(adminController.updateTransaction.bind(adminController)));
+
+// POST /api/admin/deposits/:id/reject - Reject deposit
+router.post('/deposits/:id/reject', asyncHandler(adminController.updateTransaction.bind(adminController)));
+
+// GET /api/admin/withdrawals - Get withdrawal requests
+router.get('/withdrawals', asyncHandler(adminController.getTransactions.bind(adminController)));
+
+// POST /api/admin/withdrawals/:id/approve - Approve withdrawal
+router.post('/withdrawals/:id/approve', asyncHandler(adminController.updateTransaction.bind(adminController)));
+
+// POST /api/admin/withdrawals/:id/reject - Reject withdrawal
+router.post('/withdrawals/:id/reject', asyncHandler(adminController.updateTransaction.bind(adminController)));
 
 // GET /api/admin/settings - Get system settings
 router.get('/settings', asyncHandler(adminController.getSettings.bind(adminController)));
