@@ -5,46 +5,93 @@ import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 
 export class AdminController {
-  // Get dashboard statistics
+  // Get dashboard statistics - FIXED to match frontend expectations
   async getDashboard(req: Request, res: Response) {
     try {
+      // User stats
       const [userStats] = await db
         .select({
           totalUsers: sql<number>`count(*)`,
           activeUsers: sql<number>`count(*) filter (where status = 'active')`,
-          bannedUsers: sql<number>`count(*) filter (where status = 'banned')`,
         })
         .from(users);
 
-      const [gameStats] = await db
+      // Partner stats
+      const [partnerStats] = await db
         .select({
-          totalGames: sql<number>`count(*)`,
-          activeGames: sql<number>`count(*) filter (where status = 'active')`,
-          completedGames: sql<number>`count(*) filter (where status = 'completed')`,
+          totalPartners: sql<number>`count(*) filter (where role = 'partner')`,
+          activePartners: sql<number>`count(*) filter (where role = 'partner' and status = 'active')`,
         })
-        .from(games);
+        .from(users);
 
-      const [betStats] = await db
+      // Revenue stats (from transactions)
+      const [revenueStats] = await db
         .select({
-          totalBets: sql<number>`count(*)`,
-          totalBetAmount: sql<number>`coalesce(sum(amount), 0)`,
-          totalWinnings: sql<number>`coalesce(sum(payout_amount), 0)`,
-        })
-        .from(bets);
-
-      const [transactionStats] = await db
-        .select({
-          totalDeposits: sql<number>`coalesce(sum(amount) filter (where type = 'deposit'), 0)`,
-          totalWithdrawals: sql<number>`coalesce(sum(amount) filter (where type = 'withdrawal'), 0)`,
+          totalRevenue: sql<number>`coalesce(sum(amount) filter (where type = 'deposit' and status = 'approved'), 0)`,
+          totalPayouts: sql<number>`coalesce(sum(amount) filter (where type = 'withdrawal' and status = 'approved'), 0)`,
+          pendingDeposits: sql<number>`count(*) filter (where type = 'deposit' and status = 'pending')`,
           pendingWithdrawals: sql<number>`count(*) filter (where type = 'withdrawal' and status = 'pending')`,
         })
         .from(transactions);
 
+      // Today's stats
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const [todayStats] = await db
+        .select({
+          todayRevenue: sql<number>`coalesce(sum(amount) filter (where type = 'deposit' and status = 'approved' and created_at >= ${today}), 0)`,
+          todayNewUsers: sql<number>`count(*) filter (where created_at >= ${today})`,
+        })
+        .from(transactions);
+
+      const [todayBets] = await db
+        .select({
+          todayActiveBets: sql<number>`count(*)`,
+        })
+        .from(bets)
+        .where(gte(bets.createdAt, today));
+
+      // Monthly revenue (last 30 days)
+      const monthlyRevenue = await db
+        .select({
+          date: sql<string>`date(created_at)`,
+          revenue: sql<number>`coalesce(sum(amount) filter (where type = 'deposit' and status = 'approved'), 0)`,
+        })
+        .from(transactions)
+        .where(gte(transactions.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)))
+        .groupBy(sql`date(created_at)`)
+        .orderBy(sql`date(created_at)`);
+
+      // Top games
+      const topGames = await db
+        .select({
+          gameId: games.id,
+          gameName: games.name,
+          totalBets: sql<number>`count(${bets.id})`,
+          totalRevenue: sql<number>`coalesce(sum(${bets.amount}), 0)`,
+        })
+        .from(games)
+        .leftJoin(bets, eq(games.id, bets.gameId))
+        .groupBy(games.id, games.name)
+        .orderBy(desc(sql`count(${bets.id})`))
+        .limit(5);
+
+      // Return in expected format
       res.json({
-        users: userStats,
-        games: gameStats,
-        bets: betStats,
-        transactions: transactionStats,
+        totalUsers: userStats.totalUsers || 0,
+        activeUsers: userStats.activeUsers || 0,
+        totalPartners: partnerStats.totalPartners || 0,
+        activePartners: partnerStats.activePartners || 0,
+        totalRevenue: revenueStats.totalRevenue || 0,
+        totalPayouts: revenueStats.totalPayouts || 0,
+        pendingDeposits: revenueStats.pendingDeposits || 0,
+        pendingWithdrawals: revenueStats.pendingWithdrawals || 0,
+        todayRevenue: todayStats.todayRevenue || 0,
+        todayNewUsers: todayStats.todayNewUsers || 0,
+        todayActiveBets: todayBets.todayActiveBets || 0,
+        monthlyRevenue: monthlyRevenue || [],
+        topGames: topGames || [],
       });
     } catch (error) {
       console.error('Dashboard error:', error);
@@ -490,6 +537,140 @@ export class AdminController {
   }
 
   // Update system settings
+
+  // Get deposits with proper format for frontend
+  async getDeposits(req: Request, res: Response) {
+    try {
+      const { page = '1', limit = '20', status, userId } = req.query;
+
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const offset = (pageNum - 1) * limitNum;
+
+      let conditions = [eq(transactions.type, 'deposit')];
+      
+      if (status) conditions.push(eq(transactions.status, status as any));
+      if (userId) conditions.push(eq(transactions.userId, userId as string));
+
+      const whereClause = and(...conditions);
+
+      const [result, countResult, statusCounts] = await Promise.all([
+        db
+          .select({
+            transaction: transactions,
+            user: {
+              id: users.id,
+              username: users.username,
+              email: users.email,
+              phoneNumber: users.phoneNumber,
+            },
+          })
+          .from(transactions)
+          .leftJoin(users, eq(transactions.userId, users.id))
+          .where(whereClause)
+          .orderBy(desc(transactions.createdAt))
+          .limit(limitNum)
+          .offset(offset),
+        
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(transactions)
+          .where(whereClause),
+        
+        db
+          .select({
+            pendingCount: sql<number>`count(*) filter (where status = 'pending')`,
+            approvedCount: sql<number>`count(*) filter (where status = 'approved')`,
+            rejectedCount: sql<number>`count(*) filter (where status = 'rejected')`,
+          })
+          .from(transactions)
+          .where(eq(transactions.type, 'deposit')),
+      ]);
+
+      const total = countResult[0]?.count || 0;
+
+      res.json({
+        deposits: result,
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+        pendingCount: statusCounts[0]?.pendingCount || 0,
+        approvedCount: statusCounts[0]?.approvedCount || 0,
+        rejectedCount: statusCounts[0]?.rejectedCount || 0,
+      });
+    } catch (error) {
+      console.error('Get deposits error:', error);
+      res.status(500).json({ error: 'Failed to fetch deposits' });
+    }
+  }
+
+  // Get withdrawals with proper format for frontend
+  async getWithdrawals(req: Request, res: Response) {
+    try {
+      const { page = '1', limit = '20', status, userId } = req.query;
+
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const offset = (pageNum - 1) * limitNum;
+
+      let conditions = [eq(transactions.type, 'withdrawal')];
+      
+      if (status) conditions.push(eq(transactions.status, status as any));
+      if (userId) conditions.push(eq(transactions.userId, userId as string));
+
+      const whereClause = and(...conditions);
+
+      const [result, countResult, statusCounts] = await Promise.all([
+        db
+          .select({
+            transaction: transactions,
+            user: {
+              id: users.id,
+              username: users.username,
+              email: users.email,
+              phoneNumber: users.phoneNumber,
+            },
+          })
+          .from(transactions)
+          .leftJoin(users, eq(transactions.userId, users.id))
+          .where(whereClause)
+          .orderBy(desc(transactions.createdAt))
+          .limit(limitNum)
+          .offset(offset),
+        
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(transactions)
+          .where(whereClause),
+        
+        db
+          .select({
+            pendingCount: sql<number>`count(*) filter (where status = 'pending')`,
+            approvedCount: sql<number>`count(*) filter (where status = 'approved')`,
+            rejectedCount: sql<number>`count(*) filter (where status = 'rejected')`,
+          })
+          .from(transactions)
+          .where(eq(transactions.type, 'withdrawal')),
+      ]);
+
+      const total = countResult[0]?.count || 0;
+
+      res.json({
+        withdrawals: result,
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+        pendingCount: statusCounts[0]?.pendingCount || 0,
+        approvedCount: statusCounts[0]?.approvedCount || 0,
+        rejectedCount: statusCounts[0]?.rejectedCount || 0,
+      });
+    } catch (error) {
+      console.error('Get withdrawals error:', error);
+      res.status(500).json({ error: 'Failed to fetch withdrawals' });
+    }
+  }
   async updateSettings(req: Request, res: Response) {
     try {
       const settings = req.body;

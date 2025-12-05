@@ -46,23 +46,35 @@ router.put('/transactions/:id', asyncHandler(adminController.updateTransaction.b
 // GET /api/admin/analytics - Get analytics data
 router.get('/analytics', asyncHandler(adminController.getAnalytics.bind(adminController)));
 
-// GET /api/admin/deposits - Get deposit requests
-router.get('/deposits', asyncHandler(adminController.getTransactions.bind(adminController)));
+// GET /api/admin/deposits - Get deposit requests (NEW METHOD with proper format)
+router.get('/deposits', asyncHandler(adminController.getDeposits.bind(adminController)));
 
 // POST /api/admin/deposits/:id/approve - Approve deposit
-router.post('/deposits/:id/approve', asyncHandler(adminController.updateTransaction.bind(adminController)));
+router.post('/deposits/:id/approve', asyncHandler(async (req, res) => {
+  req.body.status = 'approved';
+  return adminController.updateTransaction(req, res);
+}));
 
 // POST /api/admin/deposits/:id/reject - Reject deposit
-router.post('/deposits/:id/reject', asyncHandler(adminController.updateTransaction.bind(adminController)));
+router.post('/deposits/:id/reject', asyncHandler(async (req, res) => {
+  req.body.status = 'rejected';
+  return adminController.updateTransaction(req, res);
+}));
 
-// GET /api/admin/withdrawals - Get withdrawal requests
-router.get('/withdrawals', asyncHandler(adminController.getTransactions.bind(adminController)));
+// GET /api/admin/withdrawals - Get withdrawal requests (NEW METHOD with proper format)
+router.get('/withdrawals', asyncHandler(adminController.getWithdrawals.bind(adminController)));
 
 // POST /api/admin/withdrawals/:id/approve - Approve withdrawal
-router.post('/withdrawals/:id/approve', asyncHandler(adminController.updateTransaction.bind(adminController)));
+router.post('/withdrawals/:id/approve', asyncHandler(async (req, res) => {
+  req.body.status = 'approved';
+  return adminController.updateTransaction(req, res);
+}));
 
 // POST /api/admin/withdrawals/:id/reject - Reject withdrawal
-router.post('/withdrawals/:id/reject', asyncHandler(adminController.updateTransaction.bind(adminController)));
+router.post('/withdrawals/:id/reject', asyncHandler(async (req, res) => {
+  req.body.status = 'rejected';
+  return adminController.updateTransaction(req, res);
+}));
 
 // GET /api/admin/settings - Get system settings
 router.get('/settings', asyncHandler(adminController.getSettings.bind(adminController)));
