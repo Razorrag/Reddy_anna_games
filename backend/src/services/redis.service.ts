@@ -7,10 +7,21 @@ class RedisService {
 
   async connect(): Promise<void> {
     try {
-      this.client = createClient({
-        url: process.env.REDIS_URL || 'redis://localhost:6379',
-        password: process.env.REDIS_PASSWORD,
-      });
+      // Use individual params to avoid URL encoding issues with special chars in password
+      const redisConfig: any = {
+        socket: {
+          host: process.env.REDIS_HOST || 'localhost',
+          port: parseInt(process.env.REDIS_PORT || '6379'),
+        },
+      };
+      
+      // Only add password if provided
+      if (process.env.REDIS_PASSWORD) {
+        redisConfig.password = process.env.REDIS_PASSWORD;
+      }
+      
+      console.log(`[Redis] Connecting to ${redisConfig.socket.host}:${redisConfig.socket.port}`);
+      this.client = createClient(redisConfig);
 
       this.client.on('error', (err) => {
         logger.error('Redis Client Error:', err);
