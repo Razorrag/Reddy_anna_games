@@ -105,7 +105,7 @@ echo ""
 
 # Step 5: Stop current containers
 print_info "Step 5: Stopping current containers..."
-docker-compose -f $COMPOSE_FILE down
+docker compose -f $COMPOSE_FILE down
 print_status "Containers stopped"
 echo ""
 
@@ -124,7 +124,7 @@ print_info "Step 7: Building new Docker images..."
 print_warning "This may take several minutes..."
 echo ""
 
-docker-compose -f $COMPOSE_FILE build --no-cache
+docker compose -f $COMPOSE_FILE build --no-cache
 
 if [ $? -eq 0 ]; then
     print_status "Images built successfully"
@@ -136,7 +136,7 @@ echo ""
 
 # Step 8: Start containers
 print_info "Step 8: Starting containers..."
-docker-compose -f $COMPOSE_FILE up -d
+docker compose -f $COMPOSE_FILE up -d
 
 if [ $? -eq 0 ]; then
     print_status "Containers started"
@@ -152,12 +152,12 @@ sleep 10
 
 # Check container status
 print_info "Container status:"
-docker-compose -f $COMPOSE_FILE ps
+docker compose -f $COMPOSE_FILE ps
 echo ""
 
 # Step 10: Check database migrations
 print_info "Step 10: Running database migrations..."
-docker-compose -f $COMPOSE_FILE exec -T backend npm run migrate 2>/dev/null || print_warning "Migration command not found (might be okay)"
+docker compose -f $COMPOSE_FILE exec -T backend npm run migrate 2>/dev/null || print_warning "Migration command not found (might be okay)"
 echo ""
 
 # Step 11: Health checks
@@ -166,7 +166,7 @@ print_info "Step 11: Running health checks..."
 # Check backend health
 print_info "Checking backend health..."
 sleep 5
-BACKEND_HEALTH=$(docker-compose -f $COMPOSE_FILE exec -T backend wget -q -O- http://localhost:3001/health 2>/dev/null || echo "FAILED")
+BACKEND_HEALTH=$(docker compose -f $COMPOSE_FILE exec -T backend wget -q -O- http://localhost:3001/health 2>/dev/null || echo "FAILED")
 
 if [[ $BACKEND_HEALTH == *"ok"* ]] || [[ $BACKEND_HEALTH == *"healthy"* ]]; then
     print_status "Backend is healthy"
@@ -179,11 +179,11 @@ echo ""
 print_info "Step 12: Recent logs..."
 echo ""
 print_info "Backend logs (last 20 lines):"
-docker-compose -f $COMPOSE_FILE logs --tail=20 backend
+docker compose -f $COMPOSE_FILE logs --tail=20 backend
 echo ""
 
 print_info "Frontend logs (last 10 lines):"
-docker-compose -f $COMPOSE_FILE logs --tail=10 frontend
+docker compose -f $COMPOSE_FILE logs --tail=10 frontend
 echo ""
 
 # Step 13: Show final status
@@ -203,10 +203,10 @@ echo "  • Partner: https://rajugarikossu.com/partner"
 echo ""
 
 print_info "Useful commands:"
-echo "  • View logs: docker-compose -f $COMPOSE_FILE logs -f"
-echo "  • View status: docker-compose -f $COMPOSE_FILE ps"
-echo "  • Restart service: docker-compose -f $COMPOSE_FILE restart [service]"
-echo "  • Stop all: docker-compose -f $COMPOSE_FILE down"
+echo "  • View logs: docker compose -f $COMPOSE_FILE logs -f"
+echo "  • View status: docker compose -f $COMPOSE_FILE ps"
+echo "  • Restart service: docker compose -f $COMPOSE_FILE restart [service]"
+echo "  • Stop all: docker compose -f $COMPOSE_FILE down"
 echo ""
 
 print_info "Testing checklist:"
@@ -223,9 +223,9 @@ echo "  [ ] Check WebSocket connection"
 echo ""
 
 print_warning "If you encounter issues:"
-echo "  1. Check logs: docker-compose -f $COMPOSE_FILE logs -f"
+echo "  1. Check logs: docker compose -f $COMPOSE_FILE logs -f"
 echo "  2. Check .env file has correct values"
-echo "  3. Restart specific service: docker-compose -f $COMPOSE_FILE restart backend"
+echo "  3. Restart specific service: docker compose -f $COMPOSE_FILE restart backend"
 echo ""
 
 echo -e "${BLUE}Deployment completed at: $(date)${NC}"

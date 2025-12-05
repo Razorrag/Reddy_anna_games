@@ -36,22 +36,22 @@ echo ""
 
 # Stop frontend
 print_info "Stopping frontend container..."
-docker-compose -f docker-compose.prod.yml stop frontend
+docker compose -f docker-compose.prod.yml stop frontend
 print_status "Frontend stopped"
 
 # Remove old frontend image
 print_info "Removing old frontend image..."
-docker-compose -f docker-compose.prod.yml rm -f frontend
+docker compose -f docker-compose.prod.yml rm -f frontend
 print_status "Old image removed"
 
 # Rebuild frontend
 print_info "Building new frontend (this includes landing page updates)..."
-docker-compose -f docker-compose.prod.yml build --no-cache frontend
+docker compose -f docker-compose.prod.yml build --no-cache frontend
 print_status "Frontend rebuilt"
 
 # Start frontend
 print_info "Starting frontend..."
-docker-compose -f docker-compose.prod.yml up -d frontend
+docker compose -f docker-compose.prod.yml up -d frontend
 print_status "Frontend started"
 
 echo ""
