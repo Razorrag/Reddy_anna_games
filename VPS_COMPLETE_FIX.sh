@@ -34,11 +34,11 @@ sleep 15
 
 echo ""
 echo -e "${YELLOW}📊 Step 5: Running database migrations...${NC}"
-docker compose -f docker-compose.prod.yml exec backend npm run db:push
+docker compose -f docker-compose.prod.yml exec backend npm run migrate
 
 echo ""
 echo -e "${YELLOW}👤 Step 6: Creating admin account...${NC}"
-docker compose -f docker-compose.prod.yml exec backend tsx src/scripts/create-admin.ts || echo "Admin may already exist"
+docker compose -f docker-compose.prod.yml exec backend npm run create-admin || echo "Admin may already exist"
 
 echo ""
 echo -e "${GREEN}✅ ALL FIXES APPLIED!${NC}"

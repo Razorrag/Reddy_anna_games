@@ -17,14 +17,14 @@ NC='\033[0m'
 
 echo ""
 echo -e "${YELLOW}📦 Running database migrations...${NC}"
-docker compose -f docker-compose.prod.yml exec backend npm run db:push
+docker compose -f docker-compose.prod.yml exec backend npm run migrate
 
 echo ""
 echo -e "${GREEN}✅ Database migrations complete!${NC}"
 
 echo ""
 echo -e "${YELLOW}👤 Creating admin account...${NC}"
-docker compose -f docker-compose.prod.yml exec backend tsx src/scripts/create-admin.ts || true
+docker compose -f docker-compose.prod.yml exec backend npm run create-admin || true
 
 echo ""
 echo -e "${GREEN}✅ Admin account created!${NC}"
