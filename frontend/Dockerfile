@@ -6,7 +6,7 @@ RUN apk add --no-cache libc6-compat
 # Development stage
 FROM base AS development
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 COPY . .
 EXPOSE 5173
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
@@ -25,7 +25,7 @@ ENV VITE_WS_URL=$VITE_WS_URL
 ENV VITE_STREAM_URL=$VITE_STREAM_URL
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 COPY . .
 RUN npm run build
 
