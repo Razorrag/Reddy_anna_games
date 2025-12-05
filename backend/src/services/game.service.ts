@@ -419,7 +419,6 @@ export class GameService {
     return lastBets.map(bet => ({
       side: bet.betSide,
       amount: parseFloat(bet.amount),
-      roundNumber: bet.roundNumber,
     }));
   }
 
@@ -480,7 +479,6 @@ export class GameService {
           roundId: currentRoundId,
           betSide: lastBet.side,
           amount: lastBet.amount.toFixed(2),
-          roundNumber: lastBet.roundNumber,
           status: 'pending',
         }).returning();
 
