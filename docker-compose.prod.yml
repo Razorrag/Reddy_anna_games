@@ -85,13 +85,26 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-reddy_anna}
+      # Database - using individual params to avoid URL encoding issues with special chars
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${POSTGRES_DB:-reddy_anna}
+      DATABASE_USER: ${POSTGRES_USER:-postgres}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      # Redis
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Auth
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: 7d
+      # URLs
       FRONTEND_URL: ${FRONTEND_URL}
+      # WhatsApp
       WHATSAPP_PAYMENT_NUMBER: ${WHATSAPP_PAYMENT_NUMBER}
       PAYMENT_UPI_ID: ${PAYMENT_UPI_ID}
+      # Streaming
       OME_API_URL: http://ovenmediaengine:8081/v1
       OME_API_KEY: ${OME_API_KEY:-}
       RTMP_URL: rtmp://ovenmediaengine:1935
