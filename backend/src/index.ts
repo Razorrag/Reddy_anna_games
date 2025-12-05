@@ -29,6 +29,11 @@ import streamRoutes from './routes/stream.routes';
 dotenv.config();
 
 const app: Express = express();
+
+// CRITICAL: Trust proxy MUST be set before rate limiter middleware
+// This allows Express to correctly identify client IPs behind nginx
+app.set('trust proxy', true);
+
 const httpServer = createServer(app);
 const io = new SocketIOServer(httpServer, {
   cors: {
