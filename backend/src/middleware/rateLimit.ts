@@ -4,7 +4,7 @@ import { redisService } from '../services/redis.service';
 // General API rate limiter
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 1000, // Increased to 1000 requests per 15 minutes (admin dashboard needs many requests)
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
@@ -46,7 +46,7 @@ export const transactionLimiter = rateLimit({
 // Admin rate limiter (more permissive)
 export const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 500, // 500 requests per 15 minutes for admins
+  max: 2000, // 2000 requests per 15 minutes for admins (dashboard heavy)
   message: 'Too many admin requests, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
