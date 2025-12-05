@@ -49,8 +49,11 @@ RUN npm ci --only=production
 # Copy built files from build stage
 COPY --from=build /app/dist ./dist
 
-# Copy migration files
+# Copy migration SQL files
 COPY --from=build /app/src/db/migrations ./dist/db/migrations
+
+# Copy scripts directory
+COPY --from=build /app/dist/scripts ./dist/scripts
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
