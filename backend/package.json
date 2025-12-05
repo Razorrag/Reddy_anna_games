@@ -7,6 +7,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "create-admin": "tsx src/scripts/create-admin.ts",
+    "seed": "tsx src/db/seed.ts",
     "migrate": "tsx src/db/migrate-direct.ts",
     "migrate:drizzle": "tsx src/db/migrate.ts",
     "migrate:create": "drizzle-kit generate:pg",
