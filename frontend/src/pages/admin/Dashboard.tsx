@@ -1,346 +1,294 @@
-import { useLocation } from 'wouter';
-import { motion } from 'framer-motion';
+import { Link, useLocation } from 'wouter';
 import {
-  LayoutDashboard,
   Users,
-  IndianRupee,
+  Gift,
+  BarChart3,
+  History,
+  CreditCard,
+  Settings,
+  GamepadIcon,
   TrendingUp,
   TrendingDown,
-  Activity,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  DollarSign,
-  UserCheck,
-  GamepadIcon,
+  MessageSquare,
+  Video,
+  RefreshCw,
+  Handshake,
 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAdminDashboard } from '@/hooks/queries/admin/useAdminDashboard';
-import { format } from 'date-fns';
 
 export default function AdminDashboard() {
   const [, setLocation] = useLocation();
-  const { data: dashboard, isLoading } = useAdminDashboard();
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#0A0E27] flex items-center justify-center">
-        <div className="text-white">Loading dashboard...</div>
-      </div>
-    );
-  }
+  const { data: dashboard, isLoading, refetch } = useAdminDashboard();
 
   const stats = dashboard?.stats || {
     totalUsers: 0,
-    activeUsers: 0,
-    totalRevenue: 0,
-    todayRevenue: 0,
     pendingDeposits: 0,
     pendingWithdrawals: 0,
-    activeGames: 0,
     totalGames: 0,
+    netHouseProfit: 0,
+    totalWinnings: 0,
+    totalLosses: 0,
   };
 
-  const recentActivity = dashboard?.recentActivity || [];
-  const pendingActions = dashboard?.pendingActions || [];
+  const formatCurrency = (amount: number) => {
+    if (amount >= 10000000) {
+      return `₹${(amount / 10000000).toFixed(1)}Cr`;
+    } else if (amount >= 100000) {
+      return `₹${(amount / 100000).toFixed(1)}L`;
+    } else if (amount >= 1000) {
+      return `₹${(amount / 1000).toFixed(1)}K`;
+    }
+    return `₹${amount.toFixed(0)}`;
+  };
+
+  const netProfit = (stats.netHouseProfit || 0) >= 0 ? (stats.netHouseProfit || 0) : 0;
+  const netLoss = (stats.netHouseProfit || 0) < 0 ? Math.abs(stats.netHouseProfit || 0) : 0;
 
   return (
-    <div className="min-h-screen bg-[#0A0E27]">
+    <div className="min-h-screen bg-gradient-to-br from-violet-900 via-blue-900 to-indigo-900 p-4">
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#1a1f3a] to-[#2a2f4a] border-b border-[#FFD700]/20">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
-            <LayoutDashboard className="w-8 h-8 text-[#FFD700]" />
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-white">Admin Dashboard</h1>
-              <p className="text-sm text-gray-400">System overview and management</p>
-            </div>
+      <div className="max-w-7xl mx-auto mb-8">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-[#FFD100] to-yellow-600 bg-clip-text text-transparent drop-shadow-lg mb-2">
+              🎰 Admin Dashboard
+            </h1>
+            <p className="text-gray-400">Central management hub for your gaming platform</p>
           </div>
+          <Button
+            onClick={() => refetch()}
+            disabled={isLoading}
+            variant="outline"
+            className="border-[#FFD100]/30 text-[#FFD100] hover:bg-[#FFD100]/10"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh Stats
+          </Button>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Total Users */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Card className="bg-gradient-to-br from-[#FFD700] to-[#FFA500] border-0 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <Users className="w-8 h-8 text-[#0A0E27]" />
-                <Badge className="bg-[#0A0E27]/20 text-[#0A0E27]">Total</Badge>
+      {/* Key Metrics */}
+      <div className="max-w-7xl mx-auto mb-8">
+        <h2 className="text-2xl font-bold text-[#FFD100] mb-4">📊 Key Metrics</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          {/* Net Profit */}
+          <Card className="bg-black/40 border-green-500/30 backdrop-blur-sm hover:scale-105 transition-all duration-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-green-400">Net Profit</CardTitle>
+              <TrendingUp className="h-4 w-4 text-green-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-green-400">
+                {isLoading ? '...' : formatCurrency(netProfit)}
               </div>
-              <div className="space-y-1">
-                <p className="text-sm text-[#0A0E27]/70 font-medium">Total Users</p>
-                <p className="text-3xl font-bold text-[#0A0E27]">{stats.totalUsers.toLocaleString()}</p>
-                <p className="text-xs text-[#0A0E27]/60">
-                  {stats.activeUsers} active today
-                </p>
-              </div>
-            </Card>
-          </motion.div>
-
-          {/* Total Revenue */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
-          >
-            <Card className="bg-gradient-to-br from-green-600 to-green-700 border-0 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <IndianRupee className="w-8 h-8 text-white" />
-                <Badge className="bg-white/20 text-white">Revenue</Badge>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-white/70 font-medium">Total Revenue</p>
-                <p className="text-3xl font-bold text-white flex items-center gap-1">
-                  <IndianRupee className="w-6 h-6" />
-                  {stats.totalRevenue.toLocaleString('en-IN')}
-                </p>
-                <p className="text-xs text-white/60">
-                  ₹{stats.todayRevenue.toLocaleString('en-IN')} today
-                </p>
-              </div>
-            </Card>
-          </motion.div>
-
-          {/* Pending Payments */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
-          >
-            <Card className="bg-gradient-to-br from-[#00F5FF] to-[#00D4E5] border-0 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <Clock className="w-8 h-8 text-[#0A0E27]" />
-                <Badge className="bg-[#0A0E27]/20 text-[#0A0E27]">Pending</Badge>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-[#0A0E27]/70 font-medium">Pending Actions</p>
-                <p className="text-3xl font-bold text-[#0A0E27]">
-                  {stats.pendingDeposits + stats.pendingWithdrawals}
-                </p>
-                <p className="text-xs text-[#0A0E27]/60">
-                  {stats.pendingDeposits} deposits, {stats.pendingWithdrawals} withdrawals
-                </p>
-              </div>
-            </Card>
-          </motion.div>
-
-          {/* Active Games */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.3 }}
-          >
-            <Card className="bg-gradient-to-br from-[#1a1f3a] to-[#2a2f4a] border-[#FFD700]/30 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <GamepadIcon className="w-8 h-8 text-[#FFD700]" />
-                <Badge variant="neon">Live</Badge>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-gray-400 font-medium">Active Games</p>
-                <p className="text-3xl font-bold text-white">{stats.activeGames}</p>
-                <p className="text-xs text-gray-500">
-                  {stats.totalGames} total games today
-                </p>
-              </div>
-            </Card>
-          </motion.div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Pending Actions */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.4 }}
-          >
-            <Card className="bg-[#1a1f3a] border-[#FFD700]/30 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-[#FFD700]" />
-                  Pending Actions
-                </h3>
-                <Button
-                  variant="ghost"
-                  onClick={() => setLocation('/admin/payments')}
-                  className="text-[#FFD700] hover:text-[#FFD700]"
-                >
-                  View All →
-                </Button>
-              </div>
-
-              {pendingActions.length === 0 ? (
-                <div className="text-center py-8">
-                  <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                  <p className="text-gray-400">No pending actions</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {pendingActions.slice(0, 5).map((action: any) => (
-                    <div
-                      key={action.id}
-                      className="flex items-center justify-between p-3 bg-[#2a2f4a] rounded-lg hover:bg-[#2a2f4a]/80 transition-colors cursor-pointer"
-                      onClick={() => navigate(`/admin/${action.type}s/${action.id}`)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${
-                          action.type === 'deposit'
-                            ? 'bg-green-500/10'
-                            : 'bg-red-500/10'
-                        }`}>
-                          {action.type === 'deposit' ? (
-                            <TrendingDown className="w-5 h-5 text-green-500" />
-                          ) : (
-                            <TrendingUp className="w-5 h-5 text-red-500" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-white font-medium">
-                            {action.type === 'deposit' ? 'Deposit' : 'Withdrawal'} Request
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            {action.userName} - ₹{action.amount.toLocaleString('en-IN')}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge variant="secondary">
-                        <Clock className="w-3 h-3 mr-1" />
-                        {format(new Date(action.createdAt), 'HH:mm')}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-          </motion.div>
-
-          {/* Recent Activity */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.5 }}
-          >
-            <Card className="bg-[#1a1f3a] border-[#FFD700]/30 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-[#FFD700]" />
-                  Recent Activity
-                </h3>
-              </div>
-
-              {recentActivity.length === 0 ? (
-                <div className="text-center py-8">
-                  <Activity className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                  <p className="text-gray-400">No recent activity</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {recentActivity.slice(0, 6).map((activity: any, index: number) => (
-                    <div
-                      key={index}
-                      className="flex items-start gap-3 p-3 bg-[#2a2f4a] rounded-lg"
-                    >
-                      <div className={`p-2 rounded-lg ${
-                        activity.type === 'user_signup'
-                          ? 'bg-[#FFD700]/10'
-                          : activity.type === 'payment_approved'
-                          ? 'bg-green-500/10'
-                          : activity.type === 'game_completed'
-                          ? 'bg-[#00F5FF]/10'
-                          : 'bg-gray-500/10'
-                      }`}>
-                        {activity.type === 'user_signup' ? (
-                          <UserCheck className="w-4 h-4 text-[#FFD700]" />
-                        ) : activity.type === 'payment_approved' ? (
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                        ) : activity.type === 'game_completed' ? (
-                          <GamepadIcon className="w-4 h-4 text-[#00F5FF]" />
-                        ) : (
-                          <Activity className="w-4 h-4 text-gray-500" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm">{activity.description}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {format(new Date(activity.timestamp), 'MMM dd, HH:mm')}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-          </motion.div>
-        </div>
-
-        {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.6 }}
-          className="mt-8"
-        >
-          <Card className="bg-[#1a1f3a] border-[#FFD700]/30 p-6">
-            <h3 className="text-xl font-semibold text-white mb-6">Quick Actions</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              <Button
-                variant="outline"
-                onClick={() => setLocation('/admin/users')}
-                className="flex-col h-auto py-4 border-[#FFD700]/30 hover:border-[#FFD700]"
-              >
-                <Users className="w-6 h-6 text-[#FFD700] mb-2" />
-                <span className="text-sm">Users</span>
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setLocation('/admin/deposits')}
-                className="flex-col h-auto py-4 border-[#FFD700]/30 hover:border-[#FFD700]"
-              >
-                <TrendingDown className="w-6 h-6 text-green-500 mb-2" />
-                <span className="text-sm">Deposits</span>
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setLocation('/admin/withdrawals')}
-                className="flex-col h-auto py-4 border-[#FFD700]/30 hover:border-[#FFD700]"
-              >
-                <TrendingUp className="w-6 h-6 text-red-500 mb-2" />
-                <span className="text-sm">Withdrawals</span>
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setLocation('/admin/games')}
-                className="flex-col h-auto py-4 border-[#FFD700]/30 hover:border-[#FFD700]"
-              >
-                <GamepadIcon className="w-6 h-6 text-[#00F5FF] mb-2" />
-                <span className="text-sm">Games</span>
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setLocation('/admin/partners')}
-                className="flex-col h-auto py-4 border-[#FFD700]/30 hover:border-[#FFD700]"
-              >
-                <UserCheck className="w-6 h-6 text-[#FFD700] mb-2" />
-                <span className="text-sm">Partners</span>
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setLocation('/admin/analytics')}
-                className="flex-col h-auto py-4 border-[#FFD700]/30 hover:border-[#FFD700]"
-              >
-                <Activity className="w-6 h-6 text-[#FFD700] mb-2" />
-                <span className="text-sm">Analytics</span>
-              </Button>
-            </div>
+              <p className="text-xs text-gray-400 mt-1">House profit</p>
+            </CardContent>
           </Card>
-        </motion.div>
+
+          {/* Net Loss */}
+          <Card className="bg-black/40 border-red-500/30 backdrop-blur-sm hover:scale-105 transition-all duration-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-red-400">Net Loss</CardTitle>
+              <TrendingDown className="h-4 w-4 text-red-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-red-400">
+                {isLoading ? '...' : formatCurrency(netLoss)}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">House loss</p>
+            </CardContent>
+          </Card>
+
+          {/* Total Games */}
+          <Card className="bg-black/40 border-purple-500/30 backdrop-blur-sm hover:scale-105 transition-all duration-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-purple-400">Total Games</CardTitle>
+              <GamepadIcon className="h-4 w-4 text-purple-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-purple-400">
+                {isLoading ? '...' : (stats.totalGames || 0).toLocaleString()}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Games completed today</p>
+            </CardContent>
+          </Card>
+
+          {/* Deposit Requests */}
+          <Card className="bg-black/40 border-blue-500/30 backdrop-blur-sm hover:scale-105 transition-all duration-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-blue-400">Deposits</CardTitle>
+              <CreditCard className="h-4 w-4 text-blue-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-blue-400">
+                {isLoading ? '...' : (stats.pendingDeposits || 0).toLocaleString()}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Pending approval</p>
+            </CardContent>
+          </Card>
+
+          {/* Withdrawal Requests */}
+          <Card className="bg-black/40 border-orange-500/30 backdrop-blur-sm hover:scale-105 transition-all duration-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-orange-400">Withdrawals</CardTitle>
+              <CreditCard className="h-4 w-4 text-orange-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-orange-400">
+                {isLoading ? '...' : (stats.pendingWithdrawals || 0).toLocaleString()}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Pending approval</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Management Cards */}
+      <div className="max-w-7xl mx-auto">
+        <h2 className="text-2xl font-bold text-[#FFD100] mb-6">📊 Management Features</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Stream Settings */}
+          <Link href="/admin/stream-settings">
+            <Card className="bg-black/40 border-[#FFD100]/30 backdrop-blur-sm hover:scale-105 transition-all duration-200 cursor-pointer">
+              <CardHeader>
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-purple-700 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <Video className="w-8 h-8 text-white" />
+                </div>
+                <CardTitle className="text-center text-[#FFD100] text-xl mb-2">Stream Settings</CardTitle>
+                <CardDescription className="text-center text-gray-400">
+                  Configure global live stream URL
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
+          {/* Game Control */}
+          <Link href="/admin/game-control">
+            <Card className="bg-black/40 border-[#FFD100]/30 backdrop-blur-sm hover:scale-105 transition-all duration-200 cursor-pointer">
+              <CardHeader>
+                <div className="w-16 h-16 bg-gradient-to-br from-[#FFD100] to-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <GamepadIcon className="w-8 h-8 text-black" />
+                </div>
+                <CardTitle className="text-white text-center text-xl">Game Control</CardTitle>
+                <CardDescription className="text-gray-400 text-center">
+                  Control live games, deal cards, manage rounds
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center text-sm text-gray-400">
+                  Click to access game control panel
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* User Management */}
+          <Link href="/admin/users">
+            <Card className="bg-black/40 border-[#FFD100]/30 backdrop-blur-sm hover:scale-105 transition-all duration-200 cursor-pointer">
+              <CardHeader>
+                <div className="w-16 h-16 bg-gradient-to-br from-[#FFD100] to-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <Users className="w-8 h-8 text-black" />
+                </div>
+                <CardTitle className="text-white text-center text-xl">User Management</CardTitle>
+                <CardDescription className="text-gray-400 text-center">
+                  Manage users, balances, and permissions
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
+          {/* Bonus & Referral */}
+          <Link href="/admin/bonuses">
+            <Card className="bg-black/40 border-[#FFD100]/30 backdrop-blur-sm hover:scale-105 transition-all duration-200 cursor-pointer">
+              <CardHeader>
+                <div className="w-16 h-16 bg-gradient-to-br from-[#FFD100] to-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <Gift className="w-8 h-8 text-black" />
+                </div>
+                <CardTitle className="text-white text-center text-xl">Bonus & Referral</CardTitle>
+                <CardDescription className="text-gray-400 text-center">
+                  Manage bonuses, referrals, and rewards
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
+          {/* Analytics */}
+          <Link href="/admin/analytics">
+            <Card className="bg-black/40 border-[#FFD100]/30 backdrop-blur-sm hover:scale-105 transition-all duration-200 cursor-pointer">
+              <CardHeader>
+                <div className="w-16 h-16 bg-gradient-to-br from-[#FFD100] to-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <BarChart3 className="w-8 h-8 text-black" />
+                </div>
+                <CardTitle className="text-white text-center text-xl">Analytics</CardTitle>
+                <CardDescription className="text-gray-400 text-center">
+                  View statistics, reports, and insights
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
+          {/* Game History */}
+          <Link href="/admin/game-history">
+            <Card className="bg-black/40 border-[#FFD100]/30 backdrop-blur-sm hover:scale-105 transition-all duration-200 cursor-pointer">
+              <CardHeader>
+                <div className="w-16 h-16 bg-gradient-to-br from-[#FFD100] to-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <History className="w-8 h-8 text-black" />
+                </div>
+                <CardTitle className="text-white text-center text-xl">Game History</CardTitle>
+                <CardDescription className="text-gray-400 text-center">
+                  View complete game records and logs
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
+          {/* Payments D/W */}
+          <Link href="/admin/deposits">
+            <Card className="bg-black/40 border-[#FFD100]/30 backdrop-blur-sm hover:scale-105 transition-all duration-200 cursor-pointer">
+              <CardHeader>
+                <div className="w-16 h-16 bg-gradient-to-br from-[#FFD100] to-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <CreditCard className="w-8 h-8 text-black" />
+                </div>
+                <CardTitle className="text-white text-center text-xl">Payments D/W</CardTitle>
+                <CardDescription className="text-gray-400 text-center">
+                  Manage deposits and withdrawals
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
+          {/* Settings */}
+          <Link href="/admin/settings">
+            <Card className="bg-black/40 border-[#FFD100]/30 backdrop-blur-sm hover:scale-105 transition-all duration-200 cursor-pointer">
+              <CardHeader>
+                <div className="w-16 h-16 bg-gradient-to-br from-[#FFD100] to-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <Settings className="w-8 h-8 text-black" />
+                </div>
+                <CardTitle className="text-white text-center text-xl">System Settings</CardTitle>
+                <CardDescription className="text-gray-400 text-center">
+                  Configure system and game settings
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
+          {/* Partner Management */}
+          <Link href="/admin/partners">
+            <Card className="bg-black/40 border-purple-500/30 backdrop-blur-sm hover:scale-105 transition-all duration-200 cursor-pointer">
+              <CardHeader>
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <Handshake className="w-8 h-8 text-white" />
+                </div>
+                <CardTitle className="text-white text-center text-xl">Partner Management</CardTitle>
+                <CardDescription className="text-gray-400 text-center">
+                  Manage partner accounts
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+        </div>
       </div>
     </div>
   );

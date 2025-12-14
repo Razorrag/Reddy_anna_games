@@ -38,7 +38,9 @@ export const useLogin = () => {
       
       // Navigate based on role
       if (data.user.role === 'admin') {
-        navigate('/admin/dashboard');
+        navigate('/admin');
+      } else if (data.user.role === 'partner') {
+        navigate('/partner/dashboard');
       } else {
         navigate('/game');
       }

@@ -37,12 +37,17 @@ api.interceptors.response.use(
   (error: AxiosError<{ message: string }>) => {
     const message = error.response?.data?.message || 'Something went wrong';
     
-    // Handle 401 Unauthorized
+    // Handle 401 Unauthorized - Clear ALL auth data including Zustand persist
     if (error.response?.status === 401) {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
-      toast.error('Session expired. Please login again.');
+      localStorage.removeItem('auth-storage'); // Clear Zustand persisted auth state
+      
+      // Only redirect if not already on login page
+      if (!window.location.pathname.includes('/login')) {
+        toast.error('Session expired. Please login again.');
+        window.location.href = '/login';
+      }
       return Promise.reject(error);
     }
     

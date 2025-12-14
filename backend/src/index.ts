@@ -12,6 +12,12 @@ import { initializeGameFlow } from './websocket/game-flow';
 import { redisService } from './services/redis.service';
 import { apiLimiter } from './middleware/rateLimit';
 
+// Import services that need WebSocket access
+import { betService } from './services/bet.service';
+import { gameService } from './services/game.service';
+import { paymentService } from './services/payment.service';
+import { partnerService } from './services/partner.service';
+
 // Import routes
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
@@ -100,6 +106,13 @@ app.use((req: Request, res: Response) => {
 
 // Error handler (must be last)
 app.use(errorHandler);
+
+// Inject Socket.IO instance into services for real-time broadcasts
+betService.setIo(io);
+gameService.setIo(io);
+paymentService.setIo(io);
+partnerService.setIo(io);
+logger.info('✅ Socket.IO instance injected into services');
 
 // Initialize WebSocket with complete game flow
 initializeGameFlow(io);

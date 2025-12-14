@@ -1,6 +1,9 @@
 import { Response, NextFunction } from 'express';
 import { betService } from '../services/bet.service';
+import { gameService } from '../services/game.service';
+import { userService } from '../services/user.service';
 import { AuthRequest } from '../middleware/auth';
+import { Server as SocketIOServer } from 'socket.io';
 
 export class BetController {
   // Place a bet
@@ -18,6 +21,7 @@ export class BetController {
         return res.status(400).json({ error: 'Invalid bet side. Must be "andar" or "bahar"' });
       }
 
+      // Service will emit bet:placed, round:stats_updated, and user:balance_updated events
       const bet = await betService.placeBet(userId, roundId, betSide, parseFloat(amount));
 
       res.status(201).json({
@@ -62,7 +66,19 @@ export class BetController {
       const userId = req.userId!;
       const { betId } = req.params;
 
+      // Cancel bet through service
       const bet = await betService.cancelBet(betId, userId);
+
+      // Note: Balance update happens in service, but bet_undo_success is controller-specific
+      // Consider moving this to service for consistency
+      const io = req.app.get('io') as SocketIOServer;
+      if (io) {
+        io.to(`user:${userId}`).emit('bet_undo_success', {
+          betId,
+          userId,
+          refundedAmount: parseFloat(bet.amount),
+        });
+      }
 
       res.json({
         message: 'Bet cancelled successfully',

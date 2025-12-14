@@ -3,12 +3,14 @@ import { persist } from 'zustand/middleware';
 import type { User } from '@/types';
 import { setAuthToken, removeAuthToken } from '@/lib/api';
 import { initializeSocket, disconnectSocket } from '@/lib/socket';
+import { tokenManager } from '@/lib/TokenManager';
 
 interface AuthState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  authChecked: boolean; // Critical flag to prevent premature redirects
   
   // Actions
   setUser: (user: User) => void;
@@ -17,11 +19,16 @@ interface AuthState {
   logout: () => void;
   updateBalance: (mainBalance: number, bonusBalance: number) => void;
   setLoading: (loading: boolean) => void;
+  setAuthChecked: (checked: boolean) => void;
+  checkAuthStatus: () => void;
 }
 
 /**
  * Authentication store
  * Manages user session, JWT tokens, and login/logout
+ * 
+ * CRITICAL: authChecked flag prevents flickering during hydration.
+ * Components should show loading until authChecked is true.
  */
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -30,6 +37,7 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       isLoading: false,
+      authChecked: false, // Start as false until we verify auth state
 
       setUser: (user) => {
         set({ user, isAuthenticated: true });
@@ -38,6 +46,7 @@ export const useAuthStore = create<AuthState>()(
       setToken: (token) => {
         set({ token });
         setAuthToken(token);
+        tokenManager.setToken(token);
       },
 
       login: (user, token) => {
@@ -45,9 +54,11 @@ export const useAuthStore = create<AuthState>()(
           user, 
           token, 
           isAuthenticated: true,
-          isLoading: false 
+          isLoading: false,
+          authChecked: true
         });
         setAuthToken(token);
+        tokenManager.setToken(token);
         
         // Initialize WebSocket connection
         initializeSocket(token);
@@ -58,9 +69,14 @@ export const useAuthStore = create<AuthState>()(
           user: null, 
           token: null, 
           isAuthenticated: false,
-          isLoading: false 
+          isLoading: false,
+          authChecked: true // Keep as true - we've checked, user is just not logged in
         });
         removeAuthToken();
+        tokenManager.clearTokens();
+        
+        // Also clear the persisted Zustand state to prevent stale data
+        localStorage.removeItem('auth-storage');
         
         // Disconnect WebSocket
         disconnectSocket();
@@ -82,6 +98,30 @@ export const useAuthStore = create<AuthState>()(
       setLoading: (loading) => {
         set({ isLoading: loading });
       },
+
+      setAuthChecked: (checked) => {
+        set({ authChecked: checked });
+      },
+
+      // Check and validate auth status from persisted storage
+      checkAuthStatus: () => {
+        const { token, user } = get();
+        
+        // If we have both token and user, mark as authenticated
+        if (token && user) {
+          setAuthToken(token);
+          tokenManager.setToken(token);
+          set({ isAuthenticated: true, authChecked: true });
+        } else {
+          // Clear any stale state
+          set({ 
+            user: null, 
+            token: null, 
+            isAuthenticated: false, 
+            authChecked: true 
+          });
+        }
+      },
     }),
     {
       name: 'auth-storage',
@@ -90,6 +130,13 @@ export const useAuthStore = create<AuthState>()(
         token: state.token,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        // Called after hydration completes
+        if (state) {
+          // Validate the persisted state
+          state.checkAuthStatus();
+        }
+      },
     }
   )
 );

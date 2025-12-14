@@ -75,7 +75,7 @@ export function BettingPanel() {
       toast.info('No bets to undo')
       return
     }
-
+    
     // Show undo confirmation
     toast.info('Undo feature coming soon')
     // TODO: Implement undo last bet

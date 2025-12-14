@@ -3,10 +3,16 @@ import { bets, gameRounds, users, transactions, userBonuses, userStatistics, par
 import { eq, and, sql } from 'drizzle-orm';
 import { AppError } from '../middleware/errorHandler';
 import { userService } from './user.service';
+import { Server as SocketIOServer } from 'socket.io';
 
 export class BetService {
+  private io: SocketIOServer | null = null;
   private readonly MIN_BET = 10;
   private readonly MAX_BET = 100000;
+
+  setIo(io: SocketIOServer) {
+    this.io = io;
+  }
 
   private validateBetAmount(amount: number): void {
     if (amount < this.MIN_BET) {
@@ -89,6 +95,38 @@ export class BetService {
         await this.trackBonusWagering(userId, amountFromBonus);
       }
 
+      // ✅ WEBSOCKET BROADCAST: Notify user and room about bet
+      if (this.io) {
+        // Get updated round stats
+        const updatedRound = await db.query.gameRounds.findFirst({
+          where: eq(gameRounds.id, roundId),
+        });
+
+        // Notify the user who placed the bet
+        this.io.to(`user:${userId}`).emit('bet:placed', {
+          bet,
+          message: 'Bet placed successfully'
+        });
+
+        // Broadcast updated round statistics to all players in the game
+        if (updatedRound) {
+          this.io.to(`game:${round.gameId}`).emit('round:stats_updated', {
+            roundId,
+            totalAndarBets: updatedRound.totalAndarBets,
+            totalBaharBets: updatedRound.totalBaharBets,
+            totalBetAmount: updatedRound.totalBetAmount
+          });
+        }
+
+        // Send updated balance to user
+        const updatedBalance = await userService.getBalance(userId);
+        this.io.to(`user:${userId}`).emit('user:balance_updated', {
+          userId,
+          mainBalance: updatedBalance.balance,
+          bonusBalance: updatedBalance.bonusBalance
+        });
+      }
+
       return bet;
     } catch (error) {
       throw new AppError('Failed to place bet', 500);
@@ -141,6 +179,16 @@ export class BetService {
         });
 
         await this.updateUserStatistics(bet.userId, 'win', betAmount, winnings);
+
+        // ✅ WEBSOCKET BROADCAST: Notify winner of balance update
+        if (this.io) {
+          const updatedBalance = await userService.getBalance(bet.userId);
+          this.io.to(`user:${bet.userId}`).emit('user:balance_updated', {
+            userId: bet.userId,
+            mainBalance: updatedBalance.balance,
+            bonusBalance: updatedBalance.bonusBalance
+          });
+        }
       } else {
         await db.update(bets).set({
           status: 'lost',
@@ -149,6 +197,14 @@ export class BetService {
 
         await this.updateUserStatistics(bet.userId, 'loss', betAmount, 0);
       }
+    }
+
+    // ✅ WEBSOCKET BROADCAST: Notify all players that payouts are complete
+    if (this.io && round) {
+      this.io.to(`game:${round.gameId}`).emit('game:payouts_processed', {
+        roundId,
+        message: 'All payouts have been processed'
+      });
     }
   }
 

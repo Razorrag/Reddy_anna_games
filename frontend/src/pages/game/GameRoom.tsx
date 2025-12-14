@@ -4,33 +4,28 @@ import { useAuthStore } from '@/store/authStore'
 import { useGameStore } from '@/store/gameStore'
 import { useWebSocket } from '@/contexts/WebSocketContext'
 import { usePlaceBet } from '@/hooks/mutations/game/usePlaceBet'
-import { VideoPlayer } from '@/components/game/VideoPlayer'
-import { BettingPanel } from '@/components/game/BettingPanel'
-import { GameTable } from '@/components/game/GameTable'
-import { ChipSelector } from '@/components/game/ChipSelector'
-import { PlayerStats } from '@/components/game/PlayerStats'
-import { RoundHistory } from '@/components/game/RoundHistory'
-import { GameHeader } from '@/components/game/GameHeader'
-import { TimerOverlay } from '@/components/game/TimerOverlay'
-import { WinnerCelebration } from '@/components/game/WinnerCelebration'
-import { NoWinnerNotification } from '@/components/game/NoWinnerNotification'
-import { FlashScreen } from '@/components/game/FlashScreen'
+import { useCurrentRound } from '@/hooks/queries/game/useCurrentRound'
 import { ConnectionStatus } from '@/components/game/ConnectionStatus'
 import MobileGameLayout from '@/components/game/mobile/MobileGameLayout'
-import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { WalletModal } from '@/components/WalletModal'
+import { websocketService } from '@/lib/websocket'
 
 export default function GameRoom() {
   const [, setLocation] = useLocation()
   const { isAuthenticated, user } = useAuthStore()
-  const { currentRound, betting } = useGameStore()
-  const { isConnected } = useWebSocket()
+  const { currentRound, setGameId, setOpeningCard, setRoundNumber, setTimerDuration, setTimeRemaining, setRoundPhase, setBetting } = useGameStore()
   const placeBetMutation = usePlaceBet()
-  const isMobile = useMediaQuery('(max-width: 768px)')
   
-  // Local betting state for mobile
+  // Fetch current round state on mount
+  const { data: initialRound, isLoading: isLoadingRound } = useCurrentRound()
+  
+  // Local betting state
   const [selectedBetAmount, setSelectedBetAmount] = useState(2500)
   const [selectedPosition, setSelectedPosition] = useState<'andar' | 'bahar' | null>(null)
   const [betHistory, setBetHistory] = useState<Array<{ position: 'andar' | 'bahar'; amount: number }>>([])
+  
+  // Wallet modal state
+  const [showWalletModal, setShowWalletModal] = useState(false)
   
   // Available chip amounts
   const betAmounts = [2500, 5000, 10000, 20000, 30000, 40000, 50000, 100000]
@@ -42,12 +37,57 @@ export default function GameRoom() {
     }
   }, [isAuthenticated, setLocation])
 
+  // Initialize game state from API on mount
+  useEffect(() => {
+    if (initialRound && !currentRound) {
+      console.log('📥 Initializing game state from API:', initialRound)
+      
+      // Set game state in store
+      setGameId(initialRound.gameId)
+      setOpeningCard(initialRound.jokerCard || '')
+      setRoundNumber(initialRound.roundNumber)
+      
+      // Set betting state based on round status
+      if (initialRound.status === 'betting') {
+        setBetting(true)
+        setRoundPhase('betting')
+        
+        // Calculate remaining time
+        if (initialRound.bettingEndTime) {
+          const endTime = new Date(initialRound.bettingEndTime).getTime()
+          const now = Date.now()
+          const remaining = Math.max(0, Math.floor((endTime - now) / 1000))
+          
+          setTimerDuration(remaining)
+          setTimeRemaining(remaining)
+        }
+      } else if (initialRound.status === 'playing') {
+        setBetting(false)
+        setRoundPhase('dealing')
+      } else if (initialRound.status === 'completed') {
+        setBetting(false)
+        setRoundPhase('completed')
+      }
+    }
+  }, [initialRound, currentRound, setGameId, setOpeningCard, setRoundNumber, setTimerDuration, setTimeRemaining, setRoundPhase, setBetting])
+
+  // Emit join event when user enters game room
+  useEffect(() => {
+    if (isAuthenticated && user && initialRound) {
+      console.log('🎮 User joining game:', initialRound.gameId)
+      websocketService.emit('game:join', {
+        gameId: initialRound.gameId,
+        userId: user.id,
+      })
+    }
+  }, [isAuthenticated, user, initialRound])
+
   // Don't render anything until authenticated
   if (!isAuthenticated || !user) {
     return null
   }
 
-  // Betting handlers for mobile
+  // Betting handlers
   const handlePositionSelect = (position: 'andar' | 'bahar') => {
     setSelectedPosition(position)
   }
@@ -91,7 +131,7 @@ export default function GameRoom() {
   }
 
   const handleWalletClick = () => {
-    setLocation('/dashboard/wallet')
+    setShowWalletModal(true)
   }
 
   const handleHistoryClick = () => {
@@ -106,82 +146,32 @@ export default function GameRoom() {
     setLocation('/dashboard/bonuses')
   }
 
-  // Mobile layout
-  if (isMobile) {
-    return (
-      <>
-        <ConnectionStatus />
-        <MobileGameLayout
-          selectedBetAmount={selectedBetAmount}
-          selectedPosition={selectedPosition}
-          betAmounts={betAmounts}
-          onPositionSelect={handlePositionSelect}
-          onPlaceBet={handlePlaceBet}
-          onChipSelect={handleChipSelect}
-          onUndoBet={handleUndoBet}
-          onRebet={handleRebet}
-          onWalletClick={handleWalletClick}
-          onHistoryClick={handleHistoryClick}
-          onProfileClick={handleProfileClick}
-          onBonusClick={handleBonusClick}
-          isPlacingBet={placeBetMutation.isPending}
-        />
-      </>
-    )
-  }
-
-  // Desktop layout
+  // Use mobile layout for ALL devices (mobile-first design)
   return (
-    <div className="min-h-screen bg-[#0A0E27] relative overflow-hidden">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-[#FFD700]/5 rounded-full blur-3xl animate-pulse-slow"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-[#1E40AF]/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
-      </div>
-
-      {/* Connection Status Indicator */}
+    <>
       <ConnectionStatus />
-
-      {/* Game Header */}
-      <GameHeader />
-
-      {/* Main Game Area */}
-      <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-12 gap-6">
-          {/* Left Sidebar - Player Stats & History */}
-          <div className="col-span-3 space-y-6">
-            <PlayerStats />
-            <RoundHistory />
-          </div>
-
-          {/* Center - Video & Game Table */}
-          <div className="col-span-6 space-y-6">
-            {/* Video Player */}
-            <div className="relative">
-              <VideoPlayer />
-              <TimerOverlay />
-            </div>
-
-            {/* Game Table with Cards */}
-            <GameTable />
-
-            {/* Betting Panel */}
-            <BettingPanel />
-          </div>
-
-          {/* Right Sidebar - Chip Selector & Recent Bets */}
-          <div className="col-span-3 space-y-6">
-            <ChipSelector />
-            {/* Additional components can go here */}
-          </div>
-        </div>
-      </div>
-
-      {/* Overlays */}
-      <WinnerCelebration />
-      <NoWinnerNotification />
-
-      {/* Account Status Warning */}
+      <MobileGameLayout
+        selectedBetAmount={selectedBetAmount}
+        selectedPosition={selectedPosition}
+        betAmounts={betAmounts}
+        onPositionSelect={handlePositionSelect}
+        onPlaceBet={handlePlaceBet}
+        onChipSelect={handleChipSelect}
+        onUndoBet={handleUndoBet}
+        onRebet={handleRebet}
+        onWalletClick={handleWalletClick}
+        onHistoryClick={handleHistoryClick}
+        onProfileClick={handleProfileClick}
+        onBonusClick={handleBonusClick}
+        isPlacingBet={placeBetMutation.isPending}
+      />
+      {/* Wallet Modal */}
+      <WalletModal
+        isOpen={showWalletModal}
+        onClose={() => setShowWalletModal(false)}
+      />
+      
+      {/* Account Status Warning - Show for suspended accounts */}
       {user.isActive === false && (
         <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
           <div className="bg-yellow-500/90 backdrop-blur-sm px-6 py-3 rounded-lg shadow-lg">
@@ -191,6 +181,6 @@ export default function GameRoom() {
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }

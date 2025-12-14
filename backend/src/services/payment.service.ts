@@ -3,10 +3,16 @@ import { deposits, withdrawals, users, transactions, userBonuses, referrals } fr
 import { eq, and, desc, sql, gte } from 'drizzle-orm';
 import { AppError } from '../middleware/errorHandler';
 import { settingsService } from './settings.service';
+import type { Server as SocketIOServer } from 'socket.io';
 
 export class PaymentService {
+  private io: SocketIOServer | null = null;
   private readonly WHATSAPP_NUMBER = process.env.WHATSAPP_PAYMENT_NUMBER || '+919876543210';
   private readonly UPI_ID = process.env.PAYMENT_UPI_ID || 'payment@upi';
+
+  setIo(io: SocketIOServer) {
+    this.io = io;
+  }
 
   // ========== DEPOSIT METHODS ==========
 
@@ -82,6 +88,11 @@ export class PaymentService {
       updatedAt: new Date(),
     }).where(eq(users.id, deposit.userId));
 
+    // Get updated user balance
+    const updatedUser = await db.query.users.findFirst({
+      where: eq(users.id, deposit.userId),
+    });
+
     // Create transaction record
     await db.insert(transactions).values({
       userId: deposit.userId,
@@ -92,9 +103,25 @@ export class PaymentService {
       referenceId: deposit.id,
     });
 
+    // Broadcast deposit approved
+    if (this.io && updatedUser) {
+      this.io.to(`user:${deposit.userId}`).emit('payment:deposit_approved', {
+        depositId,
+        amount,
+        newBalance: updatedUser.balance,
+      });
+
+      this.io.to(`user:${deposit.userId}`).emit('user:balance_updated', {
+        balance: updatedUser.balance,
+        change: amount,
+        reason: 'deposit_approved',
+      });
+    }
+
     // Create deposit bonus if applicable
+    let bonusAmount = 0;
     if (bonusPercentage > 0) {
-      const bonusAmount = amount * (bonusPercentage / 100);
+      bonusAmount = amount * (bonusPercentage / 100);
       const wageringRequired = amount * wageringMultiplier;
 
       await db.insert(userBonuses).values({
@@ -106,12 +133,21 @@ export class PaymentService {
         status: 'active',
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       });
+
+      // Broadcast bonus received
+      if (this.io) {
+        this.io.to(`user:${deposit.userId}`).emit('bonus:received', {
+          bonusType: 'deposit',
+          bonusAmount,
+          wageringRequired,
+        });
+      }
     }
 
     // Process referral bonus
     await this.processReferralBonus(deposit.userId, amount);
 
-    return { success: true, depositId, amount };
+    return { success: true, depositId, amount, bonusAmount };
   }
 
   async rejectDeposit(depositId: string, adminId: string, reason: string) {
@@ -126,6 +162,15 @@ export class PaymentService {
       status: 'failed',
       rejectionReason: reason,
     }).where(eq(deposits.id, depositId));
+
+    // Broadcast deposit rejected
+    if (this.io) {
+      this.io.to(`user:${deposit.userId}`).emit('payment:deposit_rejected', {
+        depositId,
+        reason,
+        amount: deposit.amount,
+      });
+    }
 
     return { success: true, depositId };
   }
@@ -189,6 +234,26 @@ export class PaymentService {
       status: 'completed',
       description: `Referral bonus for ${user.username}`,
     });
+
+    // Get updated referrer balance
+    const referrer = await db.query.users.findFirst({
+      where: eq(users.id, user.referredBy),
+    });
+
+    // Broadcast referral bonus to referrer
+    if (this.io && referrer) {
+      this.io.to(`user:${user.referredBy}`).emit('bonus:referral_earned', {
+        referredUsername: user.username,
+        bonusAmount,
+        newBalance: referrer.balance,
+      });
+
+      this.io.to(`user:${user.referredBy}`).emit('user:balance_updated', {
+        balance: referrer.balance,
+        change: bonusAmount,
+        reason: 'referral_bonus',
+      });
+    }
   }
 
   // ========== WITHDRAWAL METHODS ==========
@@ -221,6 +286,11 @@ export class PaymentService {
       updatedAt: new Date(),
     }).where(eq(users.id, userId));
 
+    // Get updated balance
+    const updatedUser = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
     const [withdrawal] = await db.insert(withdrawals).values({
       userId,
       amount: data.amount.toFixed(2),
@@ -240,6 +310,21 @@ export class PaymentService {
       description: 'Withdrawal request',
       referenceId: withdrawal.id,
     });
+
+    // Broadcast withdrawal request created
+    if (this.io && updatedUser) {
+      this.io.to(`user:${userId}`).emit('payment:withdrawal_requested', {
+        withdrawalId: withdrawal.id,
+        amount: data.amount,
+        newBalance: updatedUser.balance,
+      });
+
+      this.io.to(`user:${userId}`).emit('user:balance_updated', {
+        balance: updatedUser.balance,
+        change: -data.amount,
+        reason: 'withdrawal_requested',
+      });
+    }
 
     return withdrawal;
   }
@@ -268,6 +353,15 @@ export class PaymentService {
       eq(transactions.type, 'withdrawal')
     ));
 
+    // Broadcast withdrawal approved
+    if (this.io) {
+      this.io.to(`user:${withdrawal.userId}`).emit('payment:withdrawal_approved', {
+        withdrawalId,
+        amount: withdrawal.amount,
+        transactionId,
+      });
+    }
+
     return { success: true, withdrawalId };
   }
 
@@ -279,11 +373,18 @@ export class PaymentService {
     if (!withdrawal) throw new AppError('Withdrawal not found', 404);
     if (withdrawal.status !== 'pending') throw new AppError('Withdrawal cannot be rejected', 400);
 
+    const refundAmount = parseFloat(withdrawal.amount);
+
     // Refund amount to user
     await db.update(users).set({
       balance: sql`${users.balance} + ${withdrawal.amount}`,
       updatedAt: new Date(),
     }).where(eq(users.id, withdrawal.userId));
+
+    // Get updated balance
+    const updatedUser = await db.query.users.findFirst({
+      where: eq(users.id, withdrawal.userId),
+    });
 
     await db.update(withdrawals).set({
       status: 'rejected',
@@ -298,6 +399,22 @@ export class PaymentService {
       eq(transactions.referenceId, withdrawalId),
       eq(transactions.type, 'withdrawal')
     ));
+
+    // Broadcast withdrawal rejected and balance refunded
+    if (this.io && updatedUser) {
+      this.io.to(`user:${withdrawal.userId}`).emit('payment:withdrawal_rejected', {
+        withdrawalId,
+        reason,
+        refundedAmount: refundAmount,
+        newBalance: updatedUser.balance,
+      });
+
+      this.io.to(`user:${withdrawal.userId}`).emit('user:balance_updated', {
+        balance: updatedUser.balance,
+        change: refundAmount,
+        reason: 'withdrawal_rejected_refund',
+      });
+    }
 
     return { success: true, withdrawalId };
   }

@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'sonner';
 import { WebSocketProvider } from './contexts/WebSocketContext';
+import { AuthInitializer } from './components/AuthInitializer';
 
 // Layouts
 import PlayerLayout from './layouts/PlayerLayout';
@@ -45,6 +46,7 @@ import { AdminTransactionsPage } from './pages/admin/AdminTransactionsPage';
 import { AdminUserDetailsPage } from './pages/admin/AdminUserDetailsPage';
 import { AdminPartnerDetailsPage } from './pages/admin/AdminPartnerDetailsPage';
 import { AdminStreamSettingsPage } from './pages/admin/AdminStreamSettingsPage';
+import { AdminBetsPage } from './pages/admin/AdminBetsPage';
 
 // Partner Pages
 import { PartnerDashboardPage } from './pages/partner/PartnerDashboardPage';
@@ -71,258 +73,267 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <WebSocketProvider>
-        <div className="min-h-screen bg-royal-gradient">
-        {/* Toast notifications with royal theme */}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            className: 'bg-royal-medium border-gold/30 text-gold',
-            duration: 4000,
-          }}
-        />
+      <AuthInitializer>
+        <WebSocketProvider>
+          <div className="min-h-screen bg-royal-gradient">
+            {/* Toast notifications with royal theme */}
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                className: 'bg-royal-medium border-gold/30 text-gold',
+                duration: 4000,
+              }}
+            />
 
-        {/* Routing */}
-        <Switch>
-          {/* Public Routes */}
-          <Route path="/" component={LandingPage} />
-          <Route path="/login" component={Login} />
-          <Route path="/signup" component={Signup} />
-          <Route path="/admin/login" component={AdminLogin} />
-          <Route path="/partner/login" component={PartnerLoginPage} />
-          <Route path="/partner/signup" component={PartnerSignupPage} />
+            {/* Routing */}
+            <Switch>
+              {/* Public Routes */}
+              <Route path="/" component={LandingPage} />
+              <Route path="/login" component={Login} />
+              <Route path="/signup" component={Signup} />
+              <Route path="/admin/login" component={AdminLogin} />
+              <Route path="/partner/login" component={PartnerLoginPage} />
+              <Route path="/partner/signup" component={PartnerSignupPage} />
 
-          {/* Player Routes - Protected with PlayerLayout */}
-          <Route path="/game">
-            {() => (
-              <PlayerLayout>
-                <GameRoomPage />
-              </PlayerLayout>
-            )}
-          </Route>
-          <Route path="/dashboard">
-            {() => (
-              <PlayerLayout>
-                <DashboardPage />
-              </PlayerLayout>
-            )}
-          </Route>
-          <Route path="/profile">
-            {() => (
-              <PlayerLayout>
-                <ProfilePage />
-              </PlayerLayout>
-            )}
-          </Route>
-          <Route path="/wallet">
-            {() => (
-              <PlayerLayout>
-                <WalletPage />
-              </PlayerLayout>
-            )}
-          </Route>
-          <Route path="/transactions">
-            {() => (
-              <PlayerLayout>
-                <TransactionsPage />
-              </PlayerLayout>
-            )}
-          </Route>
-          <Route path="/bonuses">
-            {() => (
-              <PlayerLayout>
-                <BonusesPage />
-              </PlayerLayout>
-            )}
-          </Route>
-          <Route path="/referral">
-            {() => (
-              <PlayerLayout>
-                <ReferralPage />
-              </PlayerLayout>
-            )}
-          </Route>
-          <Route path="/history">
-            {() => (
-              <PlayerLayout>
-                <GameHistoryPage />
-              </PlayerLayout>
-            )}
-          </Route>
-          <Route path="/deposit">
-            {() => (
-              <PlayerLayout>
-                <DepositPage />
-              </PlayerLayout>
-            )}
-          </Route>
-          <Route path="/withdraw">
-            {() => (
-              <PlayerLayout>
-                <WithdrawPage />
-              </PlayerLayout>
-            )}
-          </Route>
+              {/* Player Routes - Protected with PlayerLayout */}
+              <Route path="/game">
+                {() => (
+                  <PlayerLayout>
+                    <GameRoomPage />
+                  </PlayerLayout>
+                )}
+              </Route>
+              <Route path="/dashboard">
+                {() => (
+                  <PlayerLayout>
+                    <DashboardPage />
+                  </PlayerLayout>
+                )}
+              </Route>
+              <Route path="/profile">
+                {() => (
+                  <PlayerLayout>
+                    <ProfilePage />
+                  </PlayerLayout>
+                )}
+              </Route>
+              <Route path="/wallet">
+                {() => (
+                  <PlayerLayout>
+                    <WalletPage />
+                  </PlayerLayout>
+                )}
+              </Route>
+              <Route path="/transactions">
+                {() => (
+                  <PlayerLayout>
+                    <TransactionsPage />
+                  </PlayerLayout>
+                )}
+              </Route>
+              <Route path="/bonuses">
+                {() => (
+                  <PlayerLayout>
+                    <BonusesPage />
+                  </PlayerLayout>
+                )}
+              </Route>
+              <Route path="/referral">
+                {() => (
+                  <PlayerLayout>
+                    <ReferralPage />
+                  </PlayerLayout>
+                )}
+              </Route>
+              <Route path="/history">
+                {() => (
+                  <PlayerLayout>
+                    <GameHistoryPage />
+                  </PlayerLayout>
+                )}
+              </Route>
+              <Route path="/deposit">
+                {() => (
+                  <PlayerLayout>
+                    <DepositPage />
+                  </PlayerLayout>
+                )}
+              </Route>
+              <Route path="/withdraw">
+                {() => (
+                  <PlayerLayout>
+                    <WithdrawPage />
+                  </PlayerLayout>
+                )}
+              </Route>
 
-          {/* Admin Routes - Protected with AdminLayout */}
-          <Route path="/admin">
-            {() => (
-              <AdminLayout>
-                <AdminDashboardPage />
-              </AdminLayout>
-            )}
-          </Route>
-          <Route path="/admin/users">
-            {() => (
-              <AdminLayout>
-                <AdminUsersPage />
-              </AdminLayout>
-            )}
-          </Route>
-          <Route path="/admin/users/:id">
-            {(params) => (
-              <AdminLayout>
-                <AdminUserDetailsPage userId={params.id} />
-              </AdminLayout>
-            )}
-          </Route>
-          <Route path="/admin/game-control">
-            {() => (
-              <AdminLayout>
-                <AdminGameControlPage />
-              </AdminLayout>
-            )}
-          </Route>
-          <Route path="/admin/deposits">
-            {() => (
-              <AdminLayout>
-                <AdminDepositsPage />
-              </AdminLayout>
-            )}
-          </Route>
-          <Route path="/admin/withdrawals">
-            {() => (
-              <AdminLayout>
-                <AdminWithdrawalsPage />
-              </AdminLayout>
-            )}
-          </Route>
-          <Route path="/admin/bonuses">
-            {() => (
-              <AdminLayout>
-                <AdminBonusesPage />
-              </AdminLayout>
-            )}
-          </Route>
-          <Route path="/admin/partners">
-            {() => (
-              <AdminLayout>
-                <AdminPartnersPage />
-              </AdminLayout>
-            )}
-          </Route>
-          <Route path="/admin/partners/:id">
-            {(params) => (
-              <AdminLayout>
-                <AdminPartnerDetailsPage partnerId={params.id} />
-              </AdminLayout>
-            )}
-          </Route>
-          <Route path="/admin/analytics">
-            {() => (
-              <AdminLayout>
-                <AdminAnalyticsPage />
-              </AdminLayout>
-            )}
-          </Route>
-          <Route path="/admin/reports">
-            {() => (
-              <AdminLayout>
-                <AdminReportsPage />
-              </AdminLayout>
-            )}
-          </Route>
-          <Route path="/admin/game-history">
-            {() => (
-              <AdminLayout>
-                <AdminGameHistoryPage />
-              </AdminLayout>
-            )}
-          </Route>
-          <Route path="/admin/transactions">
-            {() => (
-              <AdminLayout>
-                <AdminTransactionsPage />
-              </AdminLayout>
-            )}
-          </Route>
-          <Route path="/admin/settings">
-            {() => (
-              <AdminLayout>
-                <AdminSettingsPage />
-              </AdminLayout>
-            )}
-          </Route>
-          <Route path="/admin/stream-settings">
-            {() => (
-              <AdminLayout>
-                <AdminStreamSettingsPage />
-              </AdminLayout>
-            )}
-          </Route>
+              {/* Admin Routes - Protected with AdminLayout */}
+              <Route path="/admin">
+                {() => (
+                  <AdminLayout>
+                    <AdminDashboardPage />
+                  </AdminLayout>
+                )}
+              </Route>
+              <Route path="/admin/users">
+                {() => (
+                  <AdminLayout>
+                    <AdminUsersPage />
+                  </AdminLayout>
+                )}
+              </Route>
+              <Route path="/admin/users/:id">
+                {(params) => (
+                  <AdminLayout>
+                    <AdminUserDetailsPage userId={params.id} />
+                  </AdminLayout>
+                )}
+              </Route>
+              <Route path="/admin/game-control">
+                {() => (
+                  <AdminLayout>
+                    <AdminGameControlPage />
+                  </AdminLayout>
+                )}
+              </Route>
+              <Route path="/admin/deposits">
+                {() => (
+                  <AdminLayout>
+                    <AdminDepositsPage />
+                  </AdminLayout>
+                )}
+              </Route>
+              <Route path="/admin/withdrawals">
+                {() => (
+                  <AdminLayout>
+                    <AdminWithdrawalsPage />
+                  </AdminLayout>
+                )}
+              </Route>
+              <Route path="/admin/bonuses">
+                {() => (
+                  <AdminLayout>
+                    <AdminBonusesPage />
+                  </AdminLayout>
+                )}
+              </Route>
+              <Route path="/admin/partners">
+                {() => (
+                  <AdminLayout>
+                    <AdminPartnersPage />
+                  </AdminLayout>
+                )}
+              </Route>
+              <Route path="/admin/partners/:id">
+                {(params) => (
+                  <AdminLayout>
+                    <AdminPartnerDetailsPage partnerId={params.id} />
+                  </AdminLayout>
+                )}
+              </Route>
+              <Route path="/admin/analytics">
+                {() => (
+                  <AdminLayout>
+                    <AdminAnalyticsPage />
+                  </AdminLayout>
+                )}
+              </Route>
+              <Route path="/admin/reports">
+                {() => (
+                  <AdminLayout>
+                    <AdminReportsPage />
+                  </AdminLayout>
+                )}
+              </Route>
+              <Route path="/admin/game-history">
+                {() => (
+                  <AdminLayout>
+                    <AdminGameHistoryPage />
+                  </AdminLayout>
+                )}
+              </Route>
+              <Route path="/admin/transactions">
+                {() => (
+                  <AdminLayout>
+                    <AdminTransactionsPage />
+                  </AdminLayout>
+                )}
+              </Route>
+              <Route path="/admin/settings">
+                {() => (
+                  <AdminLayout>
+                    <AdminSettingsPage />
+                  </AdminLayout>
+                )}
+              </Route>
+              <Route path="/admin/stream-settings">
+                {() => (
+                  <AdminLayout>
+                    <AdminStreamSettingsPage />
+                  </AdminLayout>
+                )}
+              </Route>
+              <Route path="/admin/bets">
+                {() => (
+                  <AdminLayout>
+                    <AdminBetsPage />
+                  </AdminLayout>
+                )}
+              </Route>
 
-          {/* Partner Routes - Protected with PartnerLayout */}
-          <Route path="/partner/dashboard">
-            {() => (
-              <PartnerLayout>
-                <PartnerDashboardPage />
-              </PartnerLayout>
-            )}
-          </Route>
-          <Route path="/partner/profile">
-            {() => (
-              <PartnerLayout>
-                <PartnerProfilePage />
-              </PartnerLayout>
-            )}
-          </Route>
-          <Route path="/partner/players">
-            {() => (
-              <PartnerLayout>
-                <PartnerPlayersPage />
-              </PartnerLayout>
-            )}
-          </Route>
-          <Route path="/partner/withdrawals">
-            {() => (
-              <PartnerLayout>
-                <PartnerWithdrawalsPage />
-              </PartnerLayout>
-            )}
-          </Route>
-          <Route path="/partner/commissions">
-            {() => (
-              <PartnerLayout>
-                <PartnerCommissionsPage />
-              </PartnerLayout>
-            )}
-          </Route>
-          <Route path="/partner/history">
-            {() => (
-              <PartnerLayout>
-                <PartnerGameHistoryPage />
-              </PartnerLayout>
-            )}
-          </Route>
+              {/* Partner Routes - Protected with PartnerLayout */}
+              <Route path="/partner/dashboard">
+                {() => (
+                  <PartnerLayout>
+                    <PartnerDashboardPage />
+                  </PartnerLayout>
+                )}
+              </Route>
+              <Route path="/partner/profile">
+                {() => (
+                  <PartnerLayout>
+                    <PartnerProfilePage />
+                  </PartnerLayout>
+                )}
+              </Route>
+              <Route path="/partner/players">
+                {() => (
+                  <PartnerLayout>
+                    <PartnerPlayersPage />
+                  </PartnerLayout>
+                )}
+              </Route>
+              <Route path="/partner/withdrawals">
+                {() => (
+                  <PartnerLayout>
+                    <PartnerWithdrawalsPage />
+                  </PartnerLayout>
+                )}
+              </Route>
+              <Route path="/partner/commissions">
+                {() => (
+                  <PartnerLayout>
+                    <PartnerCommissionsPage />
+                  </PartnerLayout>
+                )}
+              </Route>
+              <Route path="/partner/history">
+                {() => (
+                  <PartnerLayout>
+                    <PartnerGameHistoryPage />
+                  </PartnerLayout>
+                )}
+              </Route>
 
-          {/* 404 - Catch all */}
-          <Route component={NotFoundPage} />
-        </Switch>
-        </div>
+              {/* 404 - Catch all */}
+              <Route component={NotFoundPage} />
+            </Switch>
+          </div>
 
-        {/* React Query DevTools - Only in development */}
-        {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
-      </WebSocketProvider>
+          {/* React Query DevTools - Only in development */}
+          {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+        </WebSocketProvider>
+      </AuthInitializer>
     </QueryClientProvider>
   );
 }

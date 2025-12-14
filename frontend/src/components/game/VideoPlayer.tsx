@@ -723,30 +723,30 @@ export const VideoPlayer = memo(({ className = '' }: VideoPlayerProps) => {
         </div>
       )}
 
-      {/* Reconnecting Overlay */}
+      {/* Reconnecting Overlay - NO BLUR */}
       {isReconnecting && frozenFrame && (
-        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-black/90 backdrop-blur-sm px-8 py-6 rounded-xl flex flex-col items-center gap-4 shadow-2xl border border-[#FFD700]/30">
+        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70">
+          <div className="bg-black/95 px-8 py-6 rounded-xl flex flex-col items-center gap-4 border border-[#FFD700]/30">
             <div className="animate-spin rounded-full h-12 w-12 border-b-3 border-[#FFD700]"></div>
             <span className="text-white text-base font-semibold">Reconnecting to stream...</span>
           </div>
         </div>
       )}
 
-      {/* Buffering Overlay */}
+      {/* Buffering Overlay - NO BLUR */}
       {isBuffering && !isPausedState && !frozenFrame && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="bg-black/80 backdrop-blur-sm px-6 py-4 rounded-xl flex flex-col items-center gap-3">
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50">
+          <div className="bg-black/90 px-6 py-4 rounded-xl flex flex-col items-center gap-3">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FFD700]"></div>
             <span className="text-white text-sm font-medium">Loading stream...</span>
           </div>
         </div>
       )}
 
-      {/* Error Overlay */}
+      {/* Error Overlay - NO BLUR */}
       {streamError && !isPausedState && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-red-900/80 backdrop-blur-sm px-6 py-4 rounded-xl flex flex-col items-center gap-3 max-w-xs">
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
+          <div className="bg-red-900/90 px-6 py-4 rounded-xl flex flex-col items-center gap-3 max-w-xs">
             <div className="text-4xl">⚠️</div>
             <span className="text-white text-sm font-medium text-center">{streamError}</span>
           </div>
@@ -759,20 +759,20 @@ export const VideoPlayer = memo(({ className = '' }: VideoPlayerProps) => {
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" style={{ zIndex: 2 }} />
       </div>
 
-      {/* LIVE Badge */}
+      {/* LIVE Badge - NO BLUR */}
       {isLive && (
         <div className="absolute top-3 left-3 z-[55]">
-          <div className="flex items-center gap-2 bg-red-600/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg">
+          <div className="flex items-center gap-2 bg-red-600/95 px-3 py-1.5 rounded-full">
             <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
             <span className="text-white font-bold text-xs uppercase tracking-wider">LIVE</span>
           </div>
         </div>
       )}
 
-      {/* Viewer Count */}
+      {/* Viewer Count - NO BLUR */}
       {isLive && (
         <div className="absolute top-3 right-3 z-[55]">
-          <div className="flex items-center gap-2 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full">
+          <div className="flex items-center gap-2 bg-black/80 px-3 py-1.5 rounded-full">
             <span className="text-red-400 text-[10px]">👁</span>
             <span className="text-white text-xs font-medium">
               {displayedViewerCount > 0 ? displayedViewerCount.toLocaleString() : '—'}
@@ -806,91 +806,55 @@ export const VideoPlayer = memo(({ className = '' }: VideoPlayerProps) => {
         }}
       />
 
-      {/* Circular Timer Overlay */}
+      {/* Circular Timer Overlay - CPU OPTIMIZED (No GPU effects) */}
       {roundPhase === 'betting' && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[70] pointer-events-none">
           <div className={`relative transition-all duration-300 ${roundPhase === 'betting' && isPulsing ? 'animate-pulse scale-110' : 'scale-100'}`}>
             <div className="relative w-36 h-36 md:w-40 md:h-40 flex items-center justify-center">
-              {/* Multi-layer atmospheric glow */}
+              {/* Simple single glow layer - NO BLUR */}
               <div
-                className="absolute inset-0 rounded-full transition-all duration-300"
+                className="absolute inset-0 rounded-full transition-all duration-300 opacity-30"
                 style={{
-                  background: `radial-gradient(circle at center, ${getTimerColor()}40 0%, ${getTimerColor()}25 30%, transparent 70%)`,
-                  filter: 'blur(35px)',
-                  transform: 'scale(1.6)',
-                  animation: 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite'
-                }}
-              />
-              <div
-                className="absolute inset-0 rounded-full transition-all duration-300"
-                style={{
-                  background: `radial-gradient(circle at center, ${getTimerColor()}50 0%, ${getTimerColor()}30 40%, transparent 65%)`,
-                  filter: 'blur(25px)',
-                  transform: 'scale(1.3)'
-                }}
-              />
-              <div
-                className="absolute inset-0 rounded-full transition-all duration-300"
-                style={{
-                  background: `radial-gradient(circle at center, ${getTimerColor()}60 0%, ${getTimerColor()}35 35%, transparent 60%)`,
-                  filter: 'blur(15px)',
-                  transform: 'scale(1.15)'
-                }}
-              />
-              <div
-                className="absolute inset-0 rounded-full transition-all duration-300"
-                style={{
-                  background: `radial-gradient(circle at center, ${getTimerColor()}70 0%, transparent 45%)`,
-                  filter: 'blur(8px)',
-                  transform: 'scale(1.05)'
+                  background: `radial-gradient(circle at center, ${getTimerColor()} 0%, transparent 70%)`,
+                  transform: 'scale(1.4)'
                 }}
               />
 
-              {/* SVG Circle */}
+              {/* SVG Circle - NO FILTER */}
               <svg
                 className="transform -rotate-90 w-full h-full absolute inset-0"
                 viewBox="0 0 128 128"
                 preserveAspectRatio="xMidYMid meet"
-                style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))' }}
               >
                 <circle
                   cx="64"
                   cy="64"
                   r="56"
-                  stroke="rgba(31, 41, 55, 0.6)"
+                  stroke="rgba(31, 41, 55, 0.8)"
                   strokeWidth="4"
-                  fill="rgba(17, 24, 39, 0.5)"
+                  fill="rgba(17, 24, 39, 0.7)"
                   className="transition-all duration-300"
-                  style={{ filter: 'drop-shadow(0 0 8px rgba(0, 0, 0, 0.6))' }}
                 />
 
-                {/* Multi-layer progress circle */}
+                {/* Single progress circle - NO BLUR */}
                 {roundPhase === 'betting' && timeRemaining > 0 && (
-                  <>
-                    {[18, 14, 10, 7, 3].map((width, i) => (
-                      <circle
-                        key={i}
-                        cx="64"
-                        cy="64"
-                        r="56"
-                        stroke={getTimerColor()}
-                        strokeWidth={width}
-                        fill="none"
-                        strokeDasharray={`${2 * Math.PI * 56}`}
-                        strokeDashoffset={`${2 * Math.PI * 56 * (1 - getTimerProgress())}`}
-                        className="transition-all duration-1000 ease-linear"
-                        strokeLinecap="round"
-                        style={{
-                          filter: `blur(${10 - i * 2}px)`,
-                          opacity: 0.35 + i * 0.15
-                        }}
-                      />
-                    ))}
-                  </>
+                  <circle
+                    cx="64"
+                    cy="64"
+                    r="56"
+                    stroke={getTimerColor()}
+                    strokeWidth="8"
+                    fill="none"
+                    strokeDasharray={`${2 * Math.PI * 56}`}
+                    strokeDashoffset={`${2 * Math.PI * 56 * (1 - getTimerProgress())}`}
+                    className="transition-all duration-1000 ease-linear"
+                    strokeLinecap="round"
+                    opacity="0.9"
+                  />
                 )}
               </svg>
 
-              {/* Timer Content */}
+              {/* Timer Content - NO DROP-SHADOW */}
               <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
                 <div className="mb-1 transition-all duration-300">
                   <svg
@@ -902,8 +866,7 @@ export const VideoPlayer = memo(({ className = '' }: VideoPlayerProps) => {
                     strokeLinejoin="round"
                     viewBox="0 0 24 24"
                     style={{
-                      color: getTimerColor(),
-                      filter: `drop-shadow(0 0 6px ${getTimerColor()})`
+                      color: getTimerColor()
                     }}
                   >
                     <circle cx="12" cy="12" r="10" />
@@ -914,26 +877,13 @@ export const VideoPlayer = memo(({ className = '' }: VideoPlayerProps) => {
                 <div
                   className="text-white font-bold text-5xl md:text-6xl tabular-nums leading-none"
                   style={{
-                    textShadow: `
-                      0 0 15px ${getTimerColor()}FF,
-                      0 0 25px ${getTimerColor()}DD,
-                      0 0 35px ${getTimerColor()}99,
-                      0 3px 6px rgba(0, 0, 0, 0.7)
-                    `
+                    color: getTimerColor()
                   }}
                 >
                   {timeRemaining > 0 ? timeRemaining : '--'}
                 </div>
 
-                <div
-                  className="text-[#FFD700] text-sm md:text-base font-semibold mt-1.5 tracking-wide"
-                  style={{
-                    textShadow: `
-                      0 0 12px rgba(255, 209, 0, 0.9),
-                      0 2px 4px rgba(0, 0, 0, 0.8)
-                    `
-                  }}
-                >
+                <div className="text-[#FFD700] text-sm md:text-base font-semibold mt-1.5 tracking-wide">
                   Betting Time
                 </div>
               </div>

@@ -15,7 +15,8 @@ import {
   X,
   ChevronRight,
   Bell,
-  Search
+  Search,
+  Target
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +39,7 @@ const navigationItems: NavItem[] = [
   { label: 'Withdrawals', icon: CreditCard, path: '/admin/withdrawals', badge: 3 },
   { label: 'Payment History', icon: FileText, path: '/admin/payments' },
   { label: 'Game Control', icon: Gamepad2, path: '/admin/game-control' },
+  { label: 'Bets Monitor', icon: Target, path: '/admin/bets' },
   { label: 'Game Settings', icon: Settings, path: '/admin/game-settings' },
   { label: 'Game History', icon: FileText, path: '/admin/game-history' },
   { label: 'Partners', icon: UserCog, path: '/admin/partners' },
@@ -304,18 +306,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="min-h-[calc(100vh-4rem)] relative">
+        {/* Page Content - with right padding for notification panel when open */}
+        <main className="min-h-[calc(100vh-4rem)] relative pr-0 lg:pr-0">
           {children}
-          {/* Admin Notification Panel - Fixed right sidebar on ALL admin pages */}
-          <AdminNotificationPanel />
         </main>
+        
+        {/* Admin Notification Panel - Slides in from right, doesn't overlap content */}
+        <AdminNotificationPanel />
 
         {/* Footer */}
         <footer className="bg-[#1a1f3a] border-t border-cyan-500/30 py-4 px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-gray-400 text-sm">
-              © 2024 Reddy Anna. All rights reserved.
+              2024 Reddy Anna. All rights reserved.
             </p>
             <div className="flex items-center gap-6 text-sm">
               <Link href="/admin/help">

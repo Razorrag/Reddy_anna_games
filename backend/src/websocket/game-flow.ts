@@ -93,28 +93,8 @@ export function initializeGameFlow(io: SocketIOServer) {
 
         const { roundId, betSide, amount } = data;
 
-        // Place bet through service
-        const bet = await betService.placeBet(socket.userId, roundId, betSide, amount);
-
-        // Confirm to player
-        socket.emit('bet:placed', {
-          bet,
-          message: 'Bet placed successfully',
-        });
-
-        // Broadcast updated round stats to all players
-        const round = await gameService.getRoundById(roundId);
-        if (round) {
-          io.to(`game:${round.gameId}`).emit('round:stats_updated', {
-            roundId,
-            totalAndarBets: round.totalAndarBets,
-            totalBaharBets: round.totalBaharBets,
-          });
-        }
-
-        // Update user balance
-        const balance = await userService.getBalance(socket.userId);
-        socket.emit('user:balance_updated', balance);
+        // Place bet through service (service will emit all events)
+        await betService.placeBet(socket.userId, roundId, betSide, amount);
 
         logger.info(`Bet placed: User ${socket.userId}, Round ${roundId}, ${betSide}, ₹${amount}`);
       } catch (error: any) {
@@ -176,13 +156,8 @@ export function initializeGameFlow(io: SocketIOServer) {
           throw new Error('Unauthorized: Admin access required');
         }
 
+        // Service will emit game:round_created event
         const round = await gameService.createNewRound(gameId);
-
-        // Broadcast to all players
-        io.to(`game:${gameId}`).emit('game:round_created', {
-          round,
-          message: 'New round created',
-        });
 
         logger.info(`Admin ${socket.userId} created new round: ${round.id}`);
       } catch (error: any) {
@@ -198,13 +173,8 @@ export function initializeGameFlow(io: SocketIOServer) {
           throw new Error('Unauthorized: Admin access required');
         }
 
+        // Service will emit game:round_started event and start timer
         const round = await gameService.startRound(roundId);
-
-        // Broadcast to all players
-        io.to(`game:${round.gameId}`).emit('game:round_started', {
-          round,
-          message: 'Betting is now open!',
-        });
 
         logger.info(`Admin ${socket.userId} started round: ${roundId}`);
       } catch (error: any) {
@@ -220,13 +190,8 @@ export function initializeGameFlow(io: SocketIOServer) {
           throw new Error('Unauthorized: Admin access required');
         }
 
+        // Service will emit game:betting_closed event
         const round = await gameService.closeBetting(roundId);
-
-        // Broadcast to all players
-        io.to(`game:${round.gameId}`).emit('game:betting_closed', {
-          round,
-          message: 'Betting is closed',
-        });
 
         logger.info(`Admin ${socket.userId} closed betting for round: ${roundId}`);
       } catch (error: any) {
@@ -242,14 +207,8 @@ export function initializeGameFlow(io: SocketIOServer) {
           throw new Error('Unauthorized: Admin access required');
         }
 
+        // Service will emit game:dealing_started, game:card_dealt (multiple), game:winner_determined, and game:round_2_announcement (if needed)
         const round = await gameService.dealCardsAndDetermineWinner(roundId);
-
-        // Broadcast winner to all players
-        io.to(`game:${round.round.gameId}`).emit('game:winner_determined', {
-          round,
-          winningSide: round.winningSide,
-          message: `Winner: ${round.winningSide?.toUpperCase()}!`,
-        });
 
         logger.info(`Admin ${socket.userId} dealt cards for round: ${roundId}, Winner: ${round.winningSide}`);
       } catch (error: any) {
@@ -265,27 +224,11 @@ export function initializeGameFlow(io: SocketIOServer) {
           throw new Error('Unauthorized: Admin access required');
         }
 
+        // Service will emit game:payouts_processed and user:balance_updated events
         await betService.processRoundPayouts(roundId);
 
-        // Get round to find gameId
-        const roundBets = await betService.getRoundBets(roundId);
-        if (roundBets.length > 0) {
-          const gameId = roundBets[0].gameId;
-
-          // Broadcast payout completion
-          io.to(`game:${gameId}`).emit('game:payouts_processed', {
-            roundId,
-            message: 'Payouts have been processed',
-          });
-
-          // Update balance for all players who had bets
-          for (const bet of roundBets) {
-            const balance = await userService.getBalance(bet.userId);
-            io.to(`user:${bet.userId}`).emit('user:balance_updated', balance);
-          }
-        }
-
         // Update game statistics
+        const roundBets = await betService.getRoundBets(roundId);
         if (roundBets.length > 0) {
           await gameService.updateGameStatistics(roundBets[0].gameId, roundId);
         }

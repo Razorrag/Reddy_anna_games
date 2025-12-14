@@ -2,6 +2,7 @@ import { db } from '../db';
 import { games, gameRounds, bets, gameHistory, gameStatistics } from '../db/schema';
 import { eq, and, desc, sql, gte, lte } from 'drizzle-orm';
 import { AppError } from '../middleware/errorHandler';
+import type { Server as SocketIOServer } from 'socket.io';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -13,6 +14,13 @@ interface Card {
 }
 
 export class GameService {
+  private io: SocketIOServer | null = null;
+  private activeTimers: Map<string, NodeJS.Timeout> = new Map();
+
+  setIo(io: SocketIOServer) {
+    this.io = io;
+  }
+
   private createDeck(): Card[] {
     const deck: Card[] = [];
     for (const suit of SUITS) {
@@ -97,25 +105,96 @@ export class GameService {
       startTime: new Date(),
     }).returning();
 
+    // Broadcast round created event
+    if (this.io) {
+      this.io.to(`game:${gameId}`).emit('game:round_created', {
+        round: newRound,
+        jokerCard: jokerCard.display,
+      });
+    }
+
     return newRound;
   }
 
   async startRound(roundId: string) {
     const [round] = await db
       .update(gameRounds)
-      .set({ status: 'betting' })
+      .set({
+        status: 'betting',
+        bettingStartTime: new Date(),
+      })
       .where(eq(gameRounds.id, roundId))
       .returning();
+
+    // Start server-side timer for this round
+    this.startRoundTimer(roundId, round.gameId, 30);
+
+    // Broadcast round started event
+    if (this.io) {
+      this.io.to(`game:${round.gameId}`).emit('game:round_started', {
+        round,
+        bettingDuration: 30,
+      });
+    }
 
     return round;
   }
 
+  private startRoundTimer(roundId: string, gameId: string, durationSeconds: number) {
+    // Clear any existing timer for this round
+    if (this.activeTimers.has(roundId)) {
+      clearInterval(this.activeTimers.get(roundId)!);
+    }
+
+    let remainingSeconds = durationSeconds;
+
+    const timerInterval = setInterval(async () => {
+      remainingSeconds--;
+
+      // Broadcast timer update every second
+      if (this.io) {
+        this.io.to(`game:${gameId}`).emit('timer:update', {
+          roundId,
+          remaining: remainingSeconds,
+        });
+      }
+
+      // When timer reaches 0, close betting
+      if (remainingSeconds <= 0) {
+        clearInterval(timerInterval);
+        this.activeTimers.delete(roundId);
+        
+        // Auto-close betting
+        await this.closeBetting(roundId);
+      }
+    }, 1000);
+
+    this.activeTimers.set(roundId, timerInterval);
+  }
+
   async closeBetting(roundId: string) {
+    // Clear timer if exists
+    if (this.activeTimers.has(roundId)) {
+      clearInterval(this.activeTimers.get(roundId)!);
+      this.activeTimers.delete(roundId);
+    }
+
     const [round] = await db
       .update(gameRounds)
-      .set({ status: 'playing' })
+      .set({
+        status: 'playing',
+        bettingEndTime: new Date(),
+      })
       .where(eq(gameRounds.id, roundId))
       .returning();
+
+    // Broadcast betting closed event
+    if (this.io) {
+      this.io.to(`game:${round.gameId}`).emit('game:betting_closed', {
+        roundId,
+        round,
+      });
+    }
 
     return round;
   }
@@ -133,6 +212,14 @@ export class GameService {
       throw new AppError('Round is not in progress', 400);
     }
 
+    // Broadcast card dealing started
+    if (this.io) {
+      this.io.to(`game:${round.gameId}`).emit('game:dealing_started', {
+        roundId,
+        jokerCard: round.jokerCard,
+      });
+    }
+
     const deck = this.createDeck();
     const jokerRank = round.jokerCard?.replace(/[♠♥♦♣]/g, '') || '';
     
@@ -141,17 +228,34 @@ export class GameService {
     let winningCard: Card | null = null;
     const cardsDealt: { side: string; card: string }[] = [];
 
+    // Stream cards with delay for animation
     for (let i = 1; i < deck.length; i++) {
       const card = deck[i]!;
+      const isWinningCard = card.rank === jokerRank;
+      
       cardsDealt.push({ side: currentSide, card: card.display });
 
-      if (card.rank === jokerRank) {
+      // Broadcast each card as it's dealt
+      if (this.io) {
+        this.io.to(`game:${round.gameId}`).emit('game:card_dealt', {
+          roundId,
+          side: currentSide,
+          card: card.display,
+          cardNumber: i,
+          isWinningCard,
+        });
+      }
+
+      if (isWinningCard) {
         winningSide = currentSide;
         winningCard = card;
         break;
       }
 
       currentSide = currentSide === 'andar' ? 'bahar' : 'andar';
+      
+      // Add delay between cards (simulate real dealing)
+      await new Promise(resolve => setTimeout(resolve, 800));
     }
 
     const [updatedRound] = await db
@@ -164,6 +268,34 @@ export class GameService {
       })
       .where(eq(gameRounds.id, roundId))
       .returning();
+
+    // Broadcast winner determined
+    if (this.io) {
+      this.io.to(`game:${round.gameId}`).emit('game:winner_determined', {
+        roundId,
+        round: updatedRound,
+        winningSide,
+        winningCard: winningCard?.display,
+        totalCards: cardsDealt.length,
+      });
+    }
+
+    // Check if Round 2 is needed (only if Round 1 winner is Bahar)
+    if (round.roundNumber === 1 && winningSide === 'bahar') {
+      // Broadcast Round 2 announcement
+      if (this.io) {
+        this.io.to(`game:${round.gameId}`).emit('game:round_2_announcement', {
+          message: 'Bahar won Round 1! Round 2 will start in 5 seconds...',
+          nextRoundIn: 5000,
+        });
+      }
+
+      // Auto-create Round 2 after delay
+      setTimeout(async () => {
+        const round2 = await this.createNewRound(round.gameId);
+        await this.startRound(round2.id);
+      }, 5000);
+    }
 
     return {
       round: updatedRound,
@@ -187,6 +319,7 @@ export class GameService {
     });
 
     let totalPayouts = 0;
+    const winnerUpdates: Array<{ userId: string; payout: number }> = [];
 
     for (const bet of roundBets) {
       const betAmount = parseFloat(bet.amount);
@@ -197,6 +330,7 @@ export class GameService {
         payout = betAmount * 2;
         status = 'won';
         totalPayouts += payout;
+        winnerUpdates.push({ userId: bet.userId, payout });
 
         await db.update(bets).set({
           status: 'won',
@@ -231,6 +365,27 @@ export class GameService {
     await db.update(gameRounds).set({
       totalPayoutAmount: totalPayouts.toFixed(2),
     }).where(eq(gameRounds.id, roundId));
+
+    // Broadcast payouts processed to game room
+    if (this.io) {
+      this.io.to(`game:${round.gameId}`).emit('game:payouts_processed', {
+        roundId,
+        totalPayouts,
+        winnersCount: winnerUpdates.length,
+      });
+
+      // Notify each winner individually
+      for (const winner of winnerUpdates) {
+        this.io.to(`user:${winner.userId}`).emit('user:payout_received', {
+          roundId,
+          amount: winner.payout,
+          winningSide: round.winningSide,
+        });
+      }
+    }
+
+    // ✅ FIX #4: Auto-update game statistics after payout processing
+    await this.updateGameStatistics(round.gameId, roundId);
 
     return { totalPayouts, betsProcessed: roundBets.length };
   }
@@ -387,8 +542,30 @@ export class GameService {
       await tx.delete(bets).where(eq(bets.id, lastBet.id));
     });
 
-    return { 
-      success: true, 
+    // Broadcast bet undone event
+    if (this.io) {
+      this.io.to(`user:${userId}`).emit('bet:undone', {
+        roundId,
+        refundedAmount: betAmount,
+      });
+
+      // Update room stats
+      const updatedRound = await db.query.gameRounds.findFirst({
+        where: eq(gameRounds.id, roundId),
+      });
+
+      if (updatedRound) {
+        this.io.to(`game:${round.gameId}`).emit('round:stats_updated', {
+          roundId,
+          totalAndarBets: updatedRound.totalAndarBets,
+          totalBaharBets: updatedRound.totalBaharBets,
+          totalBetAmount: updatedRound.totalBetAmount,
+        });
+      }
+    }
+
+    return {
+      success: true,
       refundedAmount: betAmount,
       message: 'Bet undone successfully'
     };
@@ -487,6 +664,29 @@ export class GameService {
 
       return newBets;
     });
+
+    // Broadcast rebet success
+    if (this.io) {
+      this.io.to(`user:${userId}`).emit('bet:rebet_placed', {
+        roundId: currentRoundId,
+        betsPlaced: placedBets.length,
+        totalAmount: totalBetAmount,
+      });
+
+      // Update room stats
+      const updatedRound = await db.query.gameRounds.findFirst({
+        where: eq(gameRounds.id, currentRoundId),
+      });
+
+      if (updatedRound) {
+        this.io.to(`game:${gameId}`).emit('round:stats_updated', {
+          roundId: currentRoundId,
+          totalAndarBets: updatedRound.totalAndarBets,
+          totalBaharBets: updatedRound.totalBaharBets,
+          totalBetAmount: updatedRound.totalBetAmount,
+        });
+      }
+    }
 
     return {
       success: true,
