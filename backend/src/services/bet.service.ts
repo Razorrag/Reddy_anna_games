@@ -4,6 +4,7 @@ import { eq, and, sql } from 'drizzle-orm';
 import { AppError } from '../middleware/errorHandler';
 import { userService } from './user.service';
 import { Server as SocketIOServer } from 'socket.io';
+import { GAME_EVENTS } from '../shared/events.types';
 
 export class BetService {
   private io: SocketIOServer | null = null;
@@ -23,7 +24,7 @@ export class BetService {
     }
   }
 
-  async placeBet(userId: string, roundId: string, betSide: 'andar' | 'bahar', amount: number) {
+  async placeBet(userId: string, roundId: string, betSide: 'andar' | 'bahar', amount: number, tempId?: string) {
     this.validateBetAmount(amount);
 
     const round = await db.query.gameRounds.findFirst({
@@ -59,6 +60,7 @@ export class BetService {
         roundId,
         gameId: round.gameId,
         betSide,
+        betRound: round.roundNumber, // Track which round this bet was placed in
         amount: amount.toFixed(2),
         status: 'pending',
       }).returning();
@@ -102,29 +104,53 @@ export class BetService {
           where: eq(gameRounds.id, roundId),
         });
 
-        // Notify the user who placed the bet
-        this.io.to(`user:${userId}`).emit('bet:placed', {
+        // Get updated balance
+        const updatedBalance = await userService.getBalance(userId);
+
+        // Notify the user who placed the bet (with tempId for optimistic update confirmation)
+        this.io.to(`user:${userId}`).emit(GAME_EVENTS.BET_PLACED, {
+          betId: bet.id,
+          tempId, // For matching with optimistic update
           bet,
+          balance: {
+            mainBalance: updatedBalance.mainBalance,
+            bonusBalance: updatedBalance.bonusBalance,
+          },
           message: 'Bet placed successfully'
         });
 
         // Broadcast updated round statistics to all players in the game
         if (updatedRound) {
-          this.io.to(`game:${round.gameId}`).emit('round:stats_updated', {
+          // Calculate round-specific totals (for games with multiple rounds like Round 1 & 2)
+          const round1Bets = await this.getRoundBets(roundId);
+          const round1Andar = round1Bets
+            .filter(b => b.betSide === 'andar' && b.betRound === 1)
+            .reduce((sum, b) => sum + parseFloat(b.amount), 0);
+          const round1Bahar = round1Bets
+            .filter(b => b.betSide === 'bahar' && b.betRound === 1)
+            .reduce((sum, b) => sum + parseFloat(b.amount), 0);
+          const round2Andar = round1Bets
+            .filter(b => b.betSide === 'andar' && b.betRound === 2)
+            .reduce((sum, b) => sum + parseFloat(b.amount), 0);
+          const round2Bahar = round1Bets
+            .filter(b => b.betSide === 'bahar' && b.betRound === 2)
+            .reduce((sum, b) => sum + parseFloat(b.amount), 0);
+
+          this.io.to(`game:${round.gameId}`).emit(GAME_EVENTS.STATS_UPDATED, {
             roundId,
-            totalAndarBets: updatedRound.totalAndarBets,
-            totalBaharBets: updatedRound.totalBaharBets,
-            totalBetAmount: updatedRound.totalBetAmount
+            round1Totals: {
+              andar: round1Andar,
+              bahar: round1Bahar,
+            },
+            round2Totals: {
+              andar: round2Andar,
+              bahar: round2Bahar,
+            },
+            totalAndarBets: parseFloat(updatedRound.totalAndarBets),
+            totalBaharBets: parseFloat(updatedRound.totalBaharBets),
+            totalBetAmount: parseFloat(updatedRound.totalBetAmount),
           });
         }
-
-        // Send updated balance to user
-        const updatedBalance = await userService.getBalance(userId);
-        this.io.to(`user:${userId}`).emit('user:balance_updated', {
-          userId,
-          mainBalance: updatedBalance.balance,
-          bonusBalance: updatedBalance.bonusBalance
-        });
       }
 
       return bet;
@@ -133,12 +159,28 @@ export class BetService {
     }
   }
 
-  private calculatePayout(betAmount: number, betSide: string, winningSide: string, roundNumber: number): number {
+  private calculatePayout(betAmount: number, betSide: string, winningSide: string, roundNumber: number, betRoundNumber: number): number {
+    // Round 1 rules
     if (roundNumber === 1) {
-      if (betSide === 'andar' && winningSide === 'andar') return betAmount * 2;
-      if (betSide === 'bahar' && winningSide === 'bahar') return betAmount;
+      if (betSide === 'andar' && winningSide === 'andar') return betAmount * 2; // 1:1 payout
+      if (betSide === 'bahar' && winningSide === 'bahar') return betAmount; // 1:0 payout (refund)
       return 0;
     }
+    
+    // Round 2 rules - CRITICAL FIX for Bahar mixed payouts
+    if (roundNumber === 2) {
+      if (winningSide === 'bahar' && betSide === 'bahar') {
+        // Bahar wins Round 2: R1 bets get 1:1, R2 bets get 1:0 (refund)
+        return betRoundNumber === 1 ? betAmount * 2 : betAmount;
+      }
+      // Andar always gets 1:1 on all bets
+      if (winningSide === 'andar' && betSide === 'andar') {
+        return betAmount * 2;
+      }
+      return 0;
+    }
+    
+    // Round 3+ rules: Both sides get 1:1 payout
     return betSide === winningSide ? betAmount * 2 : 0;
   }
 
@@ -157,7 +199,7 @@ export class BetService {
 
     for (const bet of roundBets) {
       const betAmount = parseFloat(bet.amount);
-      const payout = this.calculatePayout(betAmount, bet.betSide, round.winningSide, round.roundNumber);
+      const payout = this.calculatePayout(betAmount, bet.betSide, round.winningSide, round.roundNumber, bet.betRound);
 
       if (payout > 0) {
         const winnings = payout - betAmount;
@@ -180,13 +222,22 @@ export class BetService {
 
         await this.updateUserStatistics(bet.userId, 'win', betAmount, winnings);
 
-        // ✅ WEBSOCKET BROADCAST: Notify winner of balance update
+        // ✅ WEBSOCKET BROADCAST: Notify winner of balance update and payout
         if (this.io) {
           const updatedBalance = await userService.getBalance(bet.userId);
-          this.io.to(`user:${bet.userId}`).emit('user:balance_updated', {
+          this.io.to(`user:${bet.userId}`).emit(GAME_EVENTS.BALANCE_UPDATED, {
             userId: bet.userId,
-            mainBalance: updatedBalance.balance,
-            bonusBalance: updatedBalance.bonusBalance
+            mainBalance: updatedBalance.mainBalance,
+            bonusBalance: updatedBalance.bonusBalance,
+            change: winnings,
+            reason: 'payout'
+          });
+
+          // Send payout notification
+          this.io.to(`user:${bet.userId}`).emit(GAME_EVENTS.PAYOUT_RECEIVED, {
+            roundId,
+            amount: payout,
+            winningSide: round.winningSide,
           });
         }
       } else {
@@ -201,7 +252,7 @@ export class BetService {
 
     // ✅ WEBSOCKET BROADCAST: Notify all players that payouts are complete
     if (this.io && round) {
-      this.io.to(`game:${round.gameId}`).emit('game:payouts_processed', {
+      this.io.to(`game:${round.gameId}`).emit(GAME_EVENTS.PAYOUTS_PROCESSED, {
         roundId,
         message: 'All payouts have been processed'
       });

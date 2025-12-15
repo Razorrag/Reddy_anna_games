@@ -1,12 +1,19 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type { Game, GameRound, Bet, Card } from '../types';
+import type { BetPlacedPayload } from '../shared/events.types';
 
 // Per-round betting tracking (legacy parity)
 interface RoundBets {
   andar: number;
   bahar: number;
-  bets: Array<{ id: string; side: 'andar' | 'bahar'; amount: number }>;
+  bets: Array<{
+    id: string;
+    side: 'andar' | 'bahar';
+    amount: number;
+    tempId?: string; // For optimistic updates
+    status?: 'pending' | 'confirmed' | 'failed';
+  }>;
 }
 
 interface BettingState {
@@ -22,6 +29,7 @@ interface BettingState {
 interface WinnerPayoutData {
   side: 'andar' | 'bahar';
   winningCard: string;
+  winnerDisplay: string; // "ANDAR WON", "BABA WON", or "BAHAR WON"
   userWon: boolean;
   winAmount: number;
   netProfit: number;
@@ -77,7 +85,9 @@ interface GameState {
   
   // Round actions
   setRoundNumber: (round: number) => void;
-  updateRoundBets: (round: number, side: 'andar' | 'bahar', amount: number, betId: string) => void;
+  updateRoundBets: (round: number, side: 'andar' | 'bahar', amount: number, betId: string, tempId?: string) => void;
+  confirmBet: (tempId: string, realBetId: string, balance: { mainBalance: number; bonusBalance: number }) => void;
+  failBet: (tempId: string) => void;
   clearRoundBets: (round: number) => void;
   saveLastRoundBets: () => void;
   
@@ -193,7 +203,7 @@ export const useGameStore = create<GameState>()(
       // Round actions
       setRoundNumber: (roundNumber) => set({ roundNumber }),
       
-      updateRoundBets: (round, side, amount, betId) =>
+      updateRoundBets: (round, side, amount, betId, tempId) =>
         set((state) => {
           const roundKey = round === 1 ? 'round1Bets' : 'round2Bets';
           const currentRoundBets = state[roundKey];
@@ -202,8 +212,50 @@ export const useGameStore = create<GameState>()(
             [roundKey]: {
               ...currentRoundBets,
               [side]: currentRoundBets[side] + amount,
-              bets: [...currentRoundBets.bets, { id: betId, side, amount }],
+              bets: [...currentRoundBets.bets, {
+                id: betId,
+                side,
+                amount,
+                tempId,
+                status: tempId ? 'pending' : 'confirmed',
+              }],
             },
+          };
+        }),
+      
+      confirmBet: (tempId, realBetId, balance) =>
+        set((state) => {
+          const updateBets = (bets: RoundBets) => ({
+            ...bets,
+            bets: bets.bets.map(bet =>
+              bet.tempId === tempId
+                ? { ...bet, id: realBetId, status: 'confirmed' as const, tempId: undefined }
+                : bet
+            ),
+          });
+          
+          return {
+            round1Bets: updateBets(state.round1Bets),
+            round2Bets: updateBets(state.round2Bets),
+          };
+        }),
+      
+      failBet: (tempId) =>
+        set((state) => {
+          const removeBet = (bets: RoundBets) => {
+            const failedBet = bets.bets.find(b => b.tempId === tempId);
+            if (!failedBet) return bets;
+            
+            return {
+              ...bets,
+              [failedBet.side]: Math.max(0, bets[failedBet.side] - failedBet.amount),
+              bets: bets.bets.filter(b => b.tempId !== tempId),
+            };
+          };
+          
+          return {
+            round1Bets: removeBet(state.round1Bets),
+            round2Bets: removeBet(state.round2Bets),
           };
         }),
       

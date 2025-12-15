@@ -4,6 +4,7 @@ import { betService } from '../services/bet.service';
 import { userService } from '../services/user.service';
 import { logger } from '../utils/logger';
 import jwt from 'jsonwebtoken';
+import { GAME_EVENTS } from '../shared/events.types';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -46,7 +47,7 @@ export function initializeGameFlow(io: SocketIOServer) {
     // ========================================
 
     // Join game room
-    socket.on('game:join', async (gameId: string) => {
+    socket.on(GAME_EVENTS.JOIN, async (gameId: string) => {
       try {
         const game = await gameService.getActiveGame(gameId);
         const currentRound = await gameService.getCurrentRound(gameId);
@@ -55,56 +56,56 @@ export function initializeGameFlow(io: SocketIOServer) {
         logger.info(`User ${socket.userId} joined game: ${gameId}`);
 
         // Send current game state
-        socket.emit('game:joined', {
+        socket.emit(GAME_EVENTS.JOINED, {
           game,
           currentRound,
           timestamp: new Date(),
         });
 
         // Notify room about new player
-        io.to(`game:${gameId}`).emit('game:player_joined', {
+        io.to(`game:${gameId}`).emit(GAME_EVENTS.PLAYER_JOINED, {
           playerId: socket.userId,
           playerCount: io.sockets.adapter.rooms.get(`game:${gameId}`)?.size || 0,
         });
       } catch (error: any) {
         logger.error('Error joining game:', error);
-        socket.emit('game:error', { message: error.message });
+        socket.emit(GAME_EVENTS.ERROR, { message: error.message });
       }
     });
 
     // Leave game room
-    socket.on('game:leave', (gameId: string) => {
+    socket.on(GAME_EVENTS.LEAVE, (gameId: string) => {
       socket.leave(`game:${gameId}`);
       logger.info(`User ${socket.userId} left game: ${gameId}`);
 
       // Notify room
-      io.to(`game:${gameId}`).emit('game:player_left', {
+      io.to(`game:${gameId}`).emit(GAME_EVENTS.PLAYER_LEFT, {
         playerId: socket.userId,
         playerCount: io.sockets.adapter.rooms.get(`game:${gameId}`)?.size || 0,
       });
     });
 
     // Place bet
-    socket.on('bet:place', async (data: { roundId: string; betSide: 'andar' | 'bahar'; amount: number }) => {
+    socket.on(GAME_EVENTS.BET_PLACE, async (data: { roundId: string; betSide: 'andar' | 'bahar'; amount: number; tempId?: string }) => {
       try {
         if (!socket.userId) {
           throw new Error('User not authenticated');
         }
 
-        const { roundId, betSide, amount } = data;
+        const { roundId, betSide, amount, tempId } = data;
 
         // Place bet through service (service will emit all events)
-        await betService.placeBet(socket.userId, roundId, betSide, amount);
+        await betService.placeBet(socket.userId, roundId, betSide, amount, tempId);
 
         logger.info(`Bet placed: User ${socket.userId}, Round ${roundId}, ${betSide}, ₹${amount}`);
       } catch (error: any) {
         logger.error('Error placing bet:', error);
-        socket.emit('bet:error', { message: error.message });
+        socket.emit(GAME_EVENTS.BET_ERROR, { message: error.message, tempId: data.tempId });
       }
     });
 
     // Cancel bet
-    socket.on('bet:cancel', async (betId: string) => {
+    socket.on(GAME_EVENTS.BET_CANCEL, async (betId: string) => {
       try {
         if (!socket.userId) {
           throw new Error('User not authenticated');
@@ -112,24 +113,24 @@ export function initializeGameFlow(io: SocketIOServer) {
 
         const bet = await betService.cancelBet(betId, socket.userId);
 
-        socket.emit('bet:cancelled', {
+        socket.emit(GAME_EVENTS.BET_CANCELLED, {
           bet,
           message: 'Bet cancelled successfully',
         });
 
         // Update balance
         const balance = await userService.getBalance(socket.userId);
-        socket.emit('user:balance_updated', balance);
+        socket.emit(GAME_EVENTS.BALANCE_UPDATED, balance);
 
         logger.info(`Bet cancelled: ${betId} by user ${socket.userId}`);
       } catch (error: any) {
         logger.error('Error cancelling bet:', error);
-        socket.emit('bet:error', { message: error.message });
+        socket.emit(GAME_EVENTS.BET_ERROR, { message: error.message });
       }
     });
 
     // Get round bets (for display)
-    socket.on('round:get_bets', async (roundId: string) => {
+    socket.on(GAME_EVENTS.ROUND_GET_BETS, async (roundId: string) => {
       try {
         if (!socket.userId) {
           throw new Error('User not authenticated');
@@ -138,10 +139,10 @@ export function initializeGameFlow(io: SocketIOServer) {
         const userBets = await betService.getUserBets(socket.userId, 10, 0);
         const roundBets = userBets.filter((bet: any) => bet.roundId === roundId);
 
-        socket.emit('round:bets', { roundId, bets: roundBets });
+        socket.emit(GAME_EVENTS.ROUND_BETS, { roundId, bets: roundBets });
       } catch (error: any) {
         logger.error('Error getting round bets:', error);
-        socket.emit('game:error', { message: error.message });
+        socket.emit(GAME_EVENTS.ERROR, { message: error.message });
       }
     });
 
@@ -150,81 +151,81 @@ export function initializeGameFlow(io: SocketIOServer) {
     // ========================================
 
     // Create new round
-    socket.on('admin:create_round', async (gameId: string) => {
+    socket.on(GAME_EVENTS.ADMIN_CREATE_ROUND, async (gameId: string) => {
       try {
         if (socket.userRole !== 'admin') {
           throw new Error('Unauthorized: Admin access required');
         }
 
-        // Service will emit game:round_created event
+        // Service will emit ROUND_CREATED event
         const round = await gameService.createNewRound(gameId);
 
         logger.info(`Admin ${socket.userId} created new round: ${round.id}`);
       } catch (error: any) {
         logger.error('Error creating round:', error);
-        socket.emit('admin:error', { message: error.message });
+        socket.emit(GAME_EVENTS.ADMIN_ERROR, { message: error.message });
       }
     });
 
     // Start round (open betting)
-    socket.on('admin:start_round', async (roundId: string) => {
+    socket.on(GAME_EVENTS.ADMIN_START_ROUND, async (roundId: string) => {
       try {
         if (socket.userRole !== 'admin') {
           throw new Error('Unauthorized: Admin access required');
         }
 
-        // Service will emit game:round_started event and start timer
+        // Service will emit ROUND_STARTED event and start timer
         const round = await gameService.startRound(roundId);
 
         logger.info(`Admin ${socket.userId} started round: ${roundId}`);
       } catch (error: any) {
         logger.error('Error starting round:', error);
-        socket.emit('admin:error', { message: error.message });
+        socket.emit(GAME_EVENTS.ADMIN_ERROR, { message: error.message });
       }
     });
 
     // Close betting
-    socket.on('admin:close_betting', async (roundId: string) => {
+    socket.on(GAME_EVENTS.ADMIN_CLOSE_BETTING, async (roundId: string) => {
       try {
         if (socket.userRole !== 'admin') {
           throw new Error('Unauthorized: Admin access required');
         }
 
-        // Service will emit game:betting_closed event
+        // Service will emit BETTING_CLOSED event
         const round = await gameService.closeBetting(roundId);
 
         logger.info(`Admin ${socket.userId} closed betting for round: ${roundId}`);
       } catch (error: any) {
         logger.error('Error closing betting:', error);
-        socket.emit('admin:error', { message: error.message });
+        socket.emit(GAME_EVENTS.ADMIN_ERROR, { message: error.message });
       }
     });
 
     // Deal cards and determine winner
-    socket.on('admin:deal_cards', async (roundId: string) => {
+    socket.on(GAME_EVENTS.ADMIN_DEAL_CARDS, async (roundId: string) => {
       try {
         if (socket.userRole !== 'admin') {
           throw new Error('Unauthorized: Admin access required');
         }
 
-        // Service will emit game:dealing_started, game:card_dealt (multiple), game:winner_determined, and game:round_2_announcement (if needed)
+        // Service will emit DEALING_STARTED, CARD_DEALT (multiple), WINNER_DETERMINED, and ROUND_2_ANNOUNCEMENT (if needed)
         const round = await gameService.dealCardsAndDetermineWinner(roundId);
 
         logger.info(`Admin ${socket.userId} dealt cards for round: ${roundId}, Winner: ${round.winningSide}`);
       } catch (error: any) {
         logger.error('Error dealing cards:', error);
-        socket.emit('admin:error', { message: error.message });
+        socket.emit(GAME_EVENTS.ADMIN_ERROR, { message: error.message });
       }
     });
 
     // Process payouts
-    socket.on('admin:process_payouts', async (roundId: string) => {
+    socket.on(GAME_EVENTS.ADMIN_PROCESS_PAYOUTS, async (roundId: string) => {
       try {
         if (socket.userRole !== 'admin') {
           throw new Error('Unauthorized: Admin access required');
         }
 
-        // Service will emit game:payouts_processed and user:balance_updated events
+        // Service will emit PAYOUTS_PROCESSED and BALANCE_UPDATED events
         await betService.processRoundPayouts(roundId);
 
         // Update game statistics
@@ -236,12 +237,12 @@ export function initializeGameFlow(io: SocketIOServer) {
         logger.info(`Admin ${socket.userId} processed payouts for round: ${roundId}`);
       } catch (error: any) {
         logger.error('Error processing payouts:', error);
-        socket.emit('admin:error', { message: error.message });
+        socket.emit(GAME_EVENTS.ADMIN_ERROR, { message: error.message });
       }
     });
 
     // Get live statistics
-    socket.on('admin:get_stats', async (gameId: string) => {
+    socket.on(GAME_EVENTS.ADMIN_GET_STATS, async (gameId: string) => {
       try {
         if (socket.userRole !== 'admin') {
           throw new Error('Unauthorized: Admin access required');
@@ -249,12 +250,12 @@ export function initializeGameFlow(io: SocketIOServer) {
 
         const currentRound = await gameService.getCurrentRound(gameId);
 
-        socket.emit('admin:stats', {
+        socket.emit(GAME_EVENTS.ADMIN_STATS, {
           currentRound,
         });
       } catch (error: any) {
         logger.error('Error getting stats:', error);
-        socket.emit('admin:error', { message: error.message });
+        socket.emit(GAME_EVENTS.ADMIN_ERROR, { message: error.message });
       }
     });
 
@@ -272,28 +273,28 @@ export function initializeGameFlow(io: SocketIOServer) {
 
 // Helper functions to broadcast events from services
 export function broadcastRoundCreated(io: SocketIOServer, gameId: string, round: any) {
-  io.to(`game:${gameId}`).emit('game:round_created', { round });
+  io.to(`game:${gameId}`).emit(GAME_EVENTS.ROUND_CREATED, { round });
 }
 
 export function broadcastRoundStarted(io: SocketIOServer, gameId: string, round: any) {
-  io.to(`game:${gameId}`).emit('game:round_started', { round });
+  io.to(`game:${gameId}`).emit(GAME_EVENTS.ROUND_STARTED, { round });
 }
 
 export function broadcastBettingClosed(io: SocketIOServer, gameId: string, round: any) {
-  io.to(`game:${gameId}`).emit('game:betting_closed', { round });
+  io.to(`game:${gameId}`).emit(GAME_EVENTS.BETTING_CLOSED, { round });
 }
 
 export function broadcastWinnerDetermined(io: SocketIOServer, gameId: string, round: any) {
-  io.to(`game:${gameId}`).emit('game:winner_determined', { 
+  io.to(`game:${gameId}`).emit(GAME_EVENTS.WINNER_DETERMINED, {
     round,
     winningSide: round.winningSide,
   });
 }
 
 export function broadcastPayoutsProcessed(io: SocketIOServer, gameId: string, roundId: string) {
-  io.to(`game:${gameId}`).emit('game:payouts_processed', { roundId });
+  io.to(`game:${gameId}`).emit(GAME_EVENTS.PAYOUTS_PROCESSED, { roundId });
 }
 
 export function notifyBalanceUpdate(io: SocketIOServer, userId: string, balance: any) {
-  io.to(`user:${userId}`).emit('user:balance_updated', balance);
+  io.to(`user:${userId}`).emit(GAME_EVENTS.BALANCE_UPDATED, balance);
 }

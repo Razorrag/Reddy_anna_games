@@ -83,6 +83,7 @@ export const bets = pgTable('bets', {
   roundId: uuid('round_id').references(() => gameRounds.id).notNull(),
   gameId: uuid('game_id').references(() => games.id).notNull(),
   betSide: varchar('bet_side', { length: 10 }).notNull(),
+  betRound: integer('bet_round').notNull(), // Track which round (1 or 2) the bet was placed in
   amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
   potentialWin: decimal('potential_win', { precision: 10, scale: 2 }),
   status: betStatusEnum('status').default('pending').notNull(),

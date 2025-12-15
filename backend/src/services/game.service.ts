@@ -3,6 +3,7 @@ import { games, gameRounds, bets, gameHistory, gameStatistics } from '../db/sche
 import { eq, and, desc, sql, gte, lte } from 'drizzle-orm';
 import { AppError } from '../middleware/errorHandler';
 import type { Server as SocketIOServer } from 'socket.io';
+import { GAME_EVENTS } from '../shared/events.types';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -107,7 +108,7 @@ export class GameService {
 
     // Broadcast round created event
     if (this.io) {
-      this.io.to(`game:${gameId}`).emit('game:round_created', {
+      this.io.to(`game:${gameId}`).emit(GAME_EVENTS.ROUND_CREATED, {
         round: newRound,
         jokerCard: jokerCard.display,
       });
@@ -131,7 +132,7 @@ export class GameService {
 
     // Broadcast round started event
     if (this.io) {
-      this.io.to(`game:${round.gameId}`).emit('game:round_started', {
+      this.io.to(`game:${round.gameId}`).emit(GAME_EVENTS.ROUND_STARTED, {
         round,
         bettingDuration: 30,
       });
@@ -153,7 +154,7 @@ export class GameService {
 
       // Broadcast timer update every second
       if (this.io) {
-        this.io.to(`game:${gameId}`).emit('timer:update', {
+        this.io.to(`game:${gameId}`).emit(GAME_EVENTS.TIMER_UPDATE, {
           roundId,
           remaining: remainingSeconds,
         });
@@ -190,7 +191,7 @@ export class GameService {
 
     // Broadcast betting closed event
     if (this.io) {
-      this.io.to(`game:${round.gameId}`).emit('game:betting_closed', {
+      this.io.to(`game:${round.gameId}`).emit(GAME_EVENTS.BETTING_CLOSED, {
         roundId,
         round,
       });
@@ -214,7 +215,7 @@ export class GameService {
 
     // Broadcast card dealing started
     if (this.io) {
-      this.io.to(`game:${round.gameId}`).emit('game:dealing_started', {
+      this.io.to(`game:${round.gameId}`).emit(GAME_EVENTS.DEALING_STARTED, {
         roundId,
         jokerCard: round.jokerCard,
       });
@@ -237,7 +238,7 @@ export class GameService {
 
       // Broadcast each card as it's dealt
       if (this.io) {
-        this.io.to(`game:${round.gameId}`).emit('game:card_dealt', {
+        this.io.to(`game:${round.gameId}`).emit(GAME_EVENTS.CARD_DEALT, {
           roundId,
           side: currentSide,
           card: card.display,
@@ -269,13 +270,24 @@ export class GameService {
       .where(eq(gameRounds.id, roundId))
       .returning();
 
+    // Calculate winner display text based on round number
+    let winnerDisplay = '';
+    if (round.roundNumber === 1 || round.roundNumber === 2) {
+      // Rounds 1-2: Use "BABA WON" for Bahar side
+      winnerDisplay = winningSide === 'andar' ? 'ANDAR WON' : 'BABA WON';
+    } else {
+      // Round 3+: Use proper "BAHAR WON" terminology
+      winnerDisplay = winningSide === 'andar' ? 'ANDAR WON' : 'BAHAR WON';
+    }
+
     // Broadcast winner determined
     if (this.io) {
-      this.io.to(`game:${round.gameId}`).emit('game:winner_determined', {
+      this.io.to(`game:${round.gameId}`).emit(GAME_EVENTS.WINNER_DETERMINED, {
         roundId,
         round: updatedRound,
         winningSide,
         winningCard: winningCard?.display,
+        winnerDisplay, // Include calculated winner display text
         totalCards: cardsDealt.length,
       });
     }
@@ -284,7 +296,7 @@ export class GameService {
     if (round.roundNumber === 1 && winningSide === 'bahar') {
       // Broadcast Round 2 announcement
       if (this.io) {
-        this.io.to(`game:${round.gameId}`).emit('game:round_2_announcement', {
+        this.io.to(`game:${round.gameId}`).emit(GAME_EVENTS.ROUND_2_ANNOUNCEMENT, {
           message: 'Bahar won Round 1! Round 2 will start in 5 seconds...',
           nextRoundIn: 5000,
         });
@@ -368,7 +380,7 @@ export class GameService {
 
     // Broadcast payouts processed to game room
     if (this.io) {
-      this.io.to(`game:${round.gameId}`).emit('game:payouts_processed', {
+      this.io.to(`game:${round.gameId}`).emit(GAME_EVENTS.PAYOUTS_PROCESSED, {
         roundId,
         totalPayouts,
         winnersCount: winnerUpdates.length,
@@ -376,7 +388,7 @@ export class GameService {
 
       // Notify each winner individually
       for (const winner of winnerUpdates) {
-        this.io.to(`user:${winner.userId}`).emit('user:payout_received', {
+        this.io.to(`user:${winner.userId}`).emit(GAME_EVENTS.PAYOUT_RECEIVED, {
           roundId,
           amount: winner.payout,
           winningSide: round.winningSide,
@@ -544,7 +556,7 @@ export class GameService {
 
     // Broadcast bet undone event
     if (this.io) {
-      this.io.to(`user:${userId}`).emit('bet:undone', {
+      this.io.to(`user:${userId}`).emit(GAME_EVENTS.BET_UNDONE, {
         roundId,
         refundedAmount: betAmount,
       });
@@ -555,7 +567,7 @@ export class GameService {
       });
 
       if (updatedRound) {
-        this.io.to(`game:${round.gameId}`).emit('round:stats_updated', {
+        this.io.to(`game:${round.gameId}`).emit(GAME_EVENTS.STATS_UPDATED, {
           roundId,
           totalAndarBets: updatedRound.totalAndarBets,
           totalBaharBets: updatedRound.totalBaharBets,
@@ -655,6 +667,7 @@ export class GameService {
           gameId,
           roundId: currentRoundId,
           betSide: lastBet.side,
+          betRound: currentRound.roundNumber, // Track which round this bet is placed in
           amount: lastBet.amount.toFixed(2),
           status: 'pending',
         }).returning();
@@ -667,7 +680,7 @@ export class GameService {
 
     // Broadcast rebet success
     if (this.io) {
-      this.io.to(`user:${userId}`).emit('bet:rebet_placed', {
+      this.io.to(`user:${userId}`).emit(GAME_EVENTS.REBET_PLACED, {
         roundId: currentRoundId,
         betsPlaced: placedBets.length,
         totalAmount: totalBetAmount,
@@ -679,7 +692,7 @@ export class GameService {
       });
 
       if (updatedRound) {
-        this.io.to(`game:${gameId}`).emit('round:stats_updated', {
+        this.io.to(`game:${gameId}`).emit(GAME_EVENTS.STATS_UPDATED, {
           roundId: currentRoundId,
           totalAndarBets: updatedRound.totalAndarBets,
           totalBaharBets: updatedRound.totalBaharBets,

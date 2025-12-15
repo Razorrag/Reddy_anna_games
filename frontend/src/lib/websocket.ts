@@ -1,6 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import { useGameStore } from '@/store/gameStore';
 import { useAuthStore } from '@/store/authStore';
+import { GAME_EVENTS } from '@/shared/events.types';
 
 /**
  * WebSocket Service - Complete Legacy Game Flow Integration
@@ -81,7 +82,7 @@ class WebSocketService {
     // ==========================================
     
     // NEW: Round created event
-    this.socket.on('game:round_created', (data: {
+    this.socket.on(GAME_EVENTS.ROUND_CREATED, (data: {
       round: any;
       jokerCard: string;
     }) => {
@@ -92,7 +93,7 @@ class WebSocketService {
     });
 
     // NEW: Round started with betting phase
-    this.socket.on('game:round_started', (data: {
+    this.socket.on(GAME_EVENTS.ROUND_STARTED, (data: {
       round: any;
       bettingDuration: number;
     }) => {
@@ -116,7 +117,7 @@ class WebSocketService {
     // ==========================================
 
     // NEW: Server-side timer update (every second)
-    this.socket.on('timer:update', (data: {
+    this.socket.on(GAME_EVENTS.TIMER_UPDATE, (data: {
       roundId: string;
       remaining: number;
     }) => {
@@ -130,25 +131,43 @@ class WebSocketService {
       }
     });
 
-    // NEW: Bet placed confirmation
-    this.socket.on('bet:placed', (data: {
+    // NEW: Bet placed confirmation with optimistic update support
+    this.socket.on(GAME_EVENTS.BET_PLACED, (data: {
+      betId: string;
+      tempId?: string;
       bet: any;
+      balance: {
+        mainBalance: number;
+        bonusBalance: number;
+      };
     }) => {
-      console.log('💰 Bet placed:', data);
+      console.log('💰 Bet placed confirmed:', data);
       const userId = authStore().user?.id;
       
       if (data.bet.userId === userId) {
-        store().updateRoundBets(
-          data.bet.roundNumber || 1,
-          data.bet.betSide,
-          parseFloat(data.bet.amount),
-          data.bet.id
-        );
+        if (data.tempId) {
+          // Confirm optimistic bet
+          store().confirmBet(data.tempId, data.betId, data.balance);
+          
+          // Update user balance
+          authStore().updateBalance(data.balance.mainBalance, data.balance.bonusBalance);
+        } else {
+          // Direct bet (no optimistic update)
+          store().updateRoundBets(
+            data.bet.betRound || 1,
+            data.bet.betSide,
+            parseFloat(data.bet.amount),
+            data.betId
+          );
+          
+          // Update balance
+          authStore().updateBalance(data.balance.mainBalance, data.balance.bonusBalance);
+        }
       }
     });
 
     // NEW: Bet undone
-    this.socket.on('bet:undone', (data: {
+    this.socket.on(GAME_EVENTS.BET_UNDONE, (data: {
       roundId: string;
       refundedAmount: number;
     }) => {
@@ -157,7 +176,7 @@ class WebSocketService {
     });
 
     // NEW: Rebet placed
-    this.socket.on('bet:rebet_placed', (data: {
+    this.socket.on(GAME_EVENTS.REBET_PLACED, (data: {
       roundId: string;
       betsPlaced: number;
       totalAmount: number;
@@ -169,7 +188,7 @@ class WebSocketService {
     // This event broadcasts global betting totals from all players
     // Only admin users should subscribe to this for strategic monitoring
     // Players should NOT see other players' bet totals (privacy violation)
-    this.socket.on('round:stats_updated', (data: {
+    this.socket.on(GAME_EVENTS.STATS_UPDATED, (data: {
       roundId: string;
       totalAndarBets: string;
       totalBaharBets: string;
@@ -189,7 +208,7 @@ class WebSocketService {
     });
 
     // Betting closed (timer expired)
-    this.socket.on('game:betting_closed', (data: { round: number }) => {
+    this.socket.on(GAME_EVENTS.BETTING_CLOSED, (data: { round: number }) => {
       console.log('⏰ Betting closed:', data);
       store().setBetting(false);
       store().setBettingLocked(true);
@@ -202,7 +221,7 @@ class WebSocketService {
     // ==========================================
 
     // NEW: Dealing started
-    this.socket.on('game:dealing_started', (data: {
+    this.socket.on(GAME_EVENTS.DEALING_STARTED, (data: {
       roundId: string;
       jokerCard: string;
     }) => {
@@ -211,7 +230,7 @@ class WebSocketService {
     });
 
     // NEW: Card dealt event with streaming
-    this.socket.on('game:card_dealt', (data: {
+    this.socket.on(GAME_EVENTS.CARD_DEALT, (data: {
       roundId: string;
       side: 'andar' | 'bahar';
       card: string;
@@ -234,11 +253,12 @@ class WebSocketService {
     // ==========================================
 
     // NEW: Winner determined
-    this.socket.on('game:winner_determined', (data: {
+    this.socket.on(GAME_EVENTS.WINNER_DETERMINED, (data: {
       roundId: string;
       round: any;
       winningSide: 'andar' | 'bahar';
       winningCard: string;
+      winnerDisplay: string; // "ANDAR WON", "BABA WON", or "BAHAR WON"
       totalCards: number;
     }) => {
       console.log('🏁 Winner determined:', data);
@@ -251,6 +271,7 @@ class WebSocketService {
       store().showWinner({
         side: data.winningSide,
         winningCard: data.winningCard,
+        winnerDisplay: data.winnerDisplay, // Use server-provided display text
         userWon: hasWinningBet,
         winAmount: hasWinningBet ? totalBetAmount * 2 : 0,
         netProfit: hasWinningBet ? totalBetAmount : -totalBetAmount,
@@ -261,7 +282,7 @@ class WebSocketService {
     });
 
     // NEW: Payouts processed (broadcast to room)
-    this.socket.on('game:payouts_processed', (data: {
+    this.socket.on(GAME_EVENTS.PAYOUTS_PROCESSED, (data: {
       roundId: string;
       totalPayouts: number;
       winnersCount: number;
@@ -270,7 +291,7 @@ class WebSocketService {
     });
 
     // NEW: Individual payout received
-    this.socket.on('user:payout_received', (data: {
+    this.socket.on(GAME_EVENTS.PAYOUT_RECEIVED, (data: {
       roundId: string;
       amount: number;
       winningSide: string;
@@ -283,7 +304,7 @@ class WebSocketService {
     // ==========================================
 
     // NEW: Round 2 announcement (after Bahar wins Round 1)
-    this.socket.on('game:round_2_announcement', (data: {
+    this.socket.on(GAME_EVENTS.ROUND_2_ANNOUNCEMENT, (data: {
       message: string;
       nextRoundIn: number;
     }) => {
@@ -306,14 +327,19 @@ class WebSocketService {
     // ==========================================
 
     // NEW: Balance updated (unified event from all sources)
-    this.socket.on('user:balance_updated', (data: {
-      balance: string;
-      change: number;
-      reason: string;
+    this.socket.on(GAME_EVENTS.BALANCE_UPDATED, (data: {
+      userId: string;
+      mainBalance: number;
+      bonusBalance: number;
+      change?: number;
+      reason?: string;
     }) => {
       console.log('💵 Balance updated:', data);
-      const currentBonus = authStore().user?.bonusBalance || 0;
-      authStore().updateBalance(parseFloat(data.balance), currentBonus);
+      const userId = authStore().user?.id;
+      
+      if (data.userId === userId) {
+        authStore().updateBalance(data.mainBalance, data.bonusBalance);
+      }
     });
 
     // NEW: Payment events
@@ -387,12 +413,17 @@ class WebSocketService {
     // ERROR HANDLING
     // ==========================================
 
-    this.socket.on('error', (error: { message: string; code?: string }) => {
+    this.socket.on(GAME_EVENTS.ERROR, (error: { message: string; code?: string }) => {
       console.error('❌ WebSocket error:', error);
     });
 
-    this.socket.on('bet:error', (error: { message: string }) => {
+    this.socket.on(GAME_EVENTS.BET_ERROR, (error: { message: string; tempId?: string }) => {
       console.error('❌ Bet error:', error);
+      
+      // If bet had tempId, roll it back
+      if (error.tempId) {
+        store().failBet(error.tempId);
+      }
     });
   }
 
@@ -461,24 +492,40 @@ class WebSocketService {
     }
   }
 
-  // Place bet via WebSocket (legacy flow)
-  placeBet(gameId: string, side: 'andar' | 'bahar', amount: number, round: number) {
-    const betId = `temp-${Date.now()}`;
+  // Place bet via WebSocket with optimistic update
+  placeBet(roundId: string, side: 'andar' | 'bahar', amount: number, round: number = 1) {
+    const tempId = `temp-${Date.now()}-${Math.random()}`;
     
-    this.emit('place_bet', {
-      gameId,
-      side,
+    // Optimistic update: Add bet immediately to store
+    const store = useGameStore.getState();
+    store.updateRoundBets(round, side, amount, tempId, tempId);
+    
+    // Send to backend with tempId for confirmation
+    this.emit(GAME_EVENTS.BET_PLACE, {
+      roundId,
+      betSide: side,
       amount,
-      round,
-      betId,
+      tempId,
     });
     
-    return betId;
+    // Set timeout to fail bet if no confirmation in 5 seconds
+    setTimeout(() => {
+      const currentStore = useGameStore.getState();
+      const roundKey = round === 1 ? 'round1Bets' : 'round2Bets';
+      const bet = currentStore[roundKey].bets.find(b => b.tempId === tempId);
+      
+      if (bet && bet.status === 'pending') {
+        console.error('⚠️ Bet confirmation timeout, rolling back:', tempId);
+        currentStore.failBet(tempId);
+      }
+    }, 5000);
+    
+    return tempId;
   }
 
   // Undo last bet
-  undoLastBet(gameId: string, round: number) {
-    this.emit('undo_bet', { gameId, round });
+  undoLastBet(roundId: string) {
+    this.emit(GAME_EVENTS.BET_CANCEL, { roundId });
   }
 
   isConnected(): boolean {
