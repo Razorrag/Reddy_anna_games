@@ -9,11 +9,26 @@ import { ConnectionStatus } from '@/components/game/ConnectionStatus'
 import MobileGameLayout from '@/components/game/mobile/MobileGameLayout'
 import { WalletModal } from '@/components/WalletModal'
 import { websocketService } from '@/lib/websocket'
+import { toast } from 'sonner'
 
 export default function GameRoom() {
   const [, setLocation] = useLocation()
   const { isAuthenticated, user } = useAuthStore()
-  const { currentRound, setGameId, setOpeningCard, setRoundNumber, setTimerDuration, setTimeRemaining, setRoundPhase, setBetting } = useGameStore()
+  const {
+    currentRound,
+    setGameId,
+    setOpeningCard,
+    setRoundNumber,
+    setTimerDuration,
+    setTimeRemaining,
+    setRoundPhase,
+    setBetting,
+    addAndarCard,
+    addBaharCard,
+    setWinningCard,
+    showWinnerCelebration,
+    gameStats
+  } = useGameStore()
   const placeBetMutation = usePlaceBet()
   
   // Fetch current round state on mount
@@ -81,6 +96,154 @@ export default function GameRoom() {
       })
     }
   }, [isAuthenticated, user, initialRound])
+
+  // WebSocket event listeners for real-time card dealing
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    // Listen for card dealt events
+    const handleCardDealt = (data: {
+      card: string;
+      side: 'andar' | 'bahar';
+      position: number;
+      isWinningCard: boolean;
+      roundNumber: number;
+      expectedNextSide?: string;
+    }) => {
+      console.log('🃏 Card dealt:', data)
+      
+      // Parse card format "KH" -> rank + suit
+      const rank = data.card.slice(0, -1)
+      const suit = data.card.slice(-1)
+      const color = ['♥', '♦'].includes(suit) ? 'red' : 'black'
+      
+      const cardData = {
+        rank,
+        suit,
+        display: data.card,
+        color
+      }
+      
+      // Add card to appropriate side
+      if (data.side === 'andar') {
+        addAndarCard(cardData)
+      } else {
+        addBaharCard(cardData)
+      }
+      
+      // If winning card, store it
+      if (data.isWinningCard) {
+        setWinningCard(data.card)
+        toast.success(`Winning card: ${data.card}`)
+      }
+    }
+
+    // Listen for winner determined events
+    const handleWinnerDetermined = (data: {
+      winningSide: 'andar' | 'bahar';
+      winningCard: string;
+      winnerDisplayText: string;
+      totalCards: number;
+      roundNumber: number;
+      userWon?: boolean;
+      payout?: number;
+    }) => {
+      console.log('🏆 Winner determined:', data)
+      
+      // Update round phase
+      setRoundPhase('completed')
+      setBetting(false)
+      
+      // Show winner celebration (handled by WinnerCelebration component)
+      showWinnerCelebration({
+        winningSide: data.winningSide,
+        winningCard: data.winningCard,
+        winnerDisplayText: data.winnerDisplayText,
+        userWon: data.userWon || false,
+        payout: data.payout || 0
+      })
+      
+      // Show toast notification
+      toast.success(data.winnerDisplayText, {
+        duration: 5000,
+      })
+    }
+
+    // Listen for round progression (Round 1 -> 2 -> 3)
+    const handleRoundProgression = (data: {
+      currentRound: number;
+      nextRound: number;
+      message: string;
+    }) => {
+      console.log('🔄 Round progression:', data)
+      
+      // Update round number
+      setRoundNumber(data.nextRound)
+      
+      // Show notification
+      toast.info(data.message, {
+        duration: 3000,
+      })
+      
+      // Reset betting for new round
+      setRoundPhase('betting')
+      setBetting(true)
+    }
+
+    // Listen for betting closed event
+    const handleBettingClosed = (data: { roundId: string }) => {
+      console.log('🔒 Betting closed:', data)
+      setBetting(false)
+      setRoundPhase('dealing')
+      toast.warning('Betting closed! Cards are being dealt...', {
+        duration: 2000,
+      })
+    }
+
+    // Listen for round created event (new game starting)
+    const handleRoundCreated = (data: {
+      round: any;
+      openingCard: string;
+      roundNumber: number;
+    }) => {
+      console.log('🆕 New round created:', data)
+      
+      setOpeningCard(data.openingCard)
+      setRoundNumber(data.roundNumber)
+      setBetting(true)
+      setRoundPhase('betting')
+      
+      toast.success(`New round started! Opening card: ${data.openingCard}`, {
+        duration: 3000,
+      })
+    }
+
+    // Subscribe to WebSocket events
+    websocketService.on('card:dealt', handleCardDealt)
+    websocketService.on('winner:determined', handleWinnerDetermined)
+    websocketService.on('round:progression', handleRoundProgression)
+    websocketService.on('betting:closed', handleBettingClosed)
+    websocketService.on('round:created', handleRoundCreated)
+
+    // Cleanup subscriptions
+    return () => {
+      websocketService.off('card:dealt', handleCardDealt)
+      websocketService.off('winner:determined', handleWinnerDetermined)
+      websocketService.off('round:progression', handleRoundProgression)
+      websocketService.off('betting:closed', handleBettingClosed)
+      websocketService.off('round:created', handleRoundCreated)
+    }
+  }, [
+    isAuthenticated,
+    addAndarCard,
+    addBaharCard,
+    setWinningCard,
+    showWinnerCelebration,
+    setRoundPhase,
+    setRoundNumber,
+    setBetting,
+    setOpeningCard
+  ])
 
   // Don't render anything until authenticated
   if (!isAuthenticated || !user) {

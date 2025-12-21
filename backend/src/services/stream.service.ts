@@ -100,12 +100,33 @@ export class StreamService {
   // Generate stream URLs for a game
   getStreamUrls(gameId: string, appName: string = 'live') {
     const streamName = `game_${gameId}`;
-    
+
     return {
       rtmp: `${this.config.rtmpUrl}/${appName}/${streamName}`,
       webrtc: `${this.config.webrtcUrl}/${appName}/${streamName}`,
       llhls: `${this.config.llHlsUrl}/${appName}/${streamName}/llhls.m3u8`,
       hls: `${this.config.llHlsUrl}/${appName}/${streamName}/playlist.m3u8`,
+    };
+  }
+
+  // Get WebRTC signaling URLs
+  getWebRTCUrls(appName: string = 'app', streamName: string = 'stream') {
+    const baseUrl = this.config.webrtcUrl.replace(/^ws:/, 'wss:');
+    
+    return {
+      signaling: `${baseUrl}/${appName}/${streamName}`,
+      offer: `${baseUrl}/${appName}/${streamName}/offer`,
+      answer: `${baseUrl}/${appName}/${streamName}/answer`
+    };
+  }
+
+  // Get all available stream protocols for a stream
+  getAllStreamUrls(appName: string = 'app', streamName: string = 'stream') {
+    return {
+      webrtc: this.getWebRTCUrls(appName, streamName),
+      llhls: `${this.config.llHlsUrl}/${appName}/${streamName}/llhls.m3u8`,
+      hls: `${this.config.llHlsUrl}/${appName}/${streamName}/playlist.m3u8`,
+      rtmp: `${this.config.rtmpUrl}/${appName}/${streamName}`
     };
   }
 

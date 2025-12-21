@@ -1,15 +1,19 @@
-import { createContext, useContext, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useEffect, ReactNode, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useGameStore } from '@/store/gameStore';
 import { websocketService } from '@/lib/websocket';
 
 interface WebSocketContextValue {
   isConnected: boolean;
+  isConnecting: boolean;
+  error: Error | null;
   emit: (event: string, data?: any) => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextValue>({
   isConnected: false,
+  isConnecting: false,
+  error: null,
   emit: () => {},
 });
 
@@ -28,11 +32,22 @@ interface WebSocketProviderProps {
 export const WebSocketProvider = ({ children }: WebSocketProviderProps) => {
   const { token, isAuthenticated } = useAuthStore();
   const isConnected = useGameStore((state) => state.isConnected);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (isAuthenticated && token) {
       // Connect to WebSocket
-      websocketService.connect(token);
+      setIsConnecting(true);
+      setError(null);
+      
+      try {
+        websocketService.connect(token);
+        setIsConnecting(false);
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error('WebSocket connection failed'));
+        setIsConnecting(false);
+      }
 
       // Cleanup on unmount
       return () => {
@@ -42,11 +57,17 @@ export const WebSocketProvider = ({ children }: WebSocketProviderProps) => {
   }, [isAuthenticated, token]);
 
   const emit = (event: string, data?: any) => {
-    websocketService.emit(event, data);
+    try {
+      websocketService.emit(event, data);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('WebSocket emit failed'));
+    }
   };
 
   const value: WebSocketContextValue = {
     isConnected,
+    isConnecting,
+    error,
     emit,
   };
 

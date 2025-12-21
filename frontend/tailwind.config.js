@@ -1,3 +1,4 @@
+
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: ['class'],
@@ -15,33 +16,62 @@ export default {
     },
     extend: {
       colors: {
-        // Royal Theme Colors
-        royal: {
-          darkest: '#0A0E27',
-          darker: '#141B3D',
-          dark: '#1E2749',
-          medium: '#2C3A67',
-          light: '#3D4E7C',
-          lighter: '#4F6191',
+        // Ultra Dark Casino Theme - Almost Black Base
+        casino: {
+          black: '#000000',
+          darkest: '#0a0a0a',
+          darker: '#0d1015',
+          dark: '#121820',
+          medium: '#1a2228',
         },
-        // Legacy Violet/Purple Theme
-        violet: {
-          darkest: '#1E1B4B',
-          dark: '#312E81',
-          DEFAULT: '#8B5CF6',
-          light: '#A78BFA',
-          lighter: '#C4B5FD',
+        // Metallic Dark Green - Shiny & Professional
+        metallic: {
+          green: {
+            darkest: '#0a1f12',      // Very dark metallic green
+            darker: '#0f2817',       // Dark metallic green
+            dark: '#14331d',         // Medium dark with metallic sheen
+            base: '#1a4d2e',         // Base metallic green
+            light: '#236d3f',        // Lighter metallic green
+            shine: '#2d8f52',        // Shiny metallic highlight
+            glow: '#34a85e',         // Glowing metallic accent
+          },
         },
-        purple: {
-          gradient: 'linear-gradient(135deg, #8B5CF6, #3B82F6)',
+        // Electric Blue & Glow Colors - Next Level Theme
+        glow: {
+          // Electric Dark Blue - Primary Color
+          blue: '#0066FF',
+          'blue-light': '#1a7aff',
+          'blue-dark': '#0052cc',
+          'blue-metallic': '#0059e6',  // Metallic blue variant
+          // Emerald Green Accent - Complements Blue
+          emerald: '#10b981',
+          'emerald-dark': '#059669',
+          'emerald-light': '#34d399',
+          // Teal Accent - Bridge between blue and green
+          teal: '#14b8a6',
+          'teal-dark': '#0d9488',
+          'teal-light': '#2dd4bf',
+          // Purple Accent
+          purple: '#6366F1',
+          'purple-light': '#818CF8',
+          // Violet Accent
+          violet: '#8B5CF6',
+          'violet-light': '#A78BFA',
+          // Pink Accent
+          pink: '#EC4899',
+          'pink-light': '#F472B6',
+          // Gold Accent
+          gold: '#F59E0B',
+          'gold-light': '#FBBF24',
         },
-        gold: {
-          darkest: '#8B7500',
-          darker: '#B8990D',
-          DEFAULT: '#FFD700',
-          light: '#FFE44D',
-          lighter: '#FFF299',
-          lightest: '#FFFBCC',
+        // Multi-color Gradient Stops for Premium Headings
+        gradient: {
+          blue: '#0066FF',
+          emerald: '#10b981',
+          teal: '#14b8a6',
+          purple: '#8B5CF6',
+          pink: '#EC4899',
+          gold: '#F59E0B',
         },
         // Semantic Colors
         success: {
@@ -121,51 +151,129 @@ export default {
         },
       },
       backgroundImage: {
-        'royal-gradient': 'linear-gradient(135deg, #0A0E27 0%, #1E2749 100%)',
-        // Premium Metallic Gold: Dark Gold -> Bright Gold -> Dark Gold (Metallic luster)
-        'premium-gold': 'linear-gradient(to bottom, #BF953F, #FCF6BA, #B38728, #FBF5B7, #AA771C)',
-        // Simplified Gold for smaller elements
-        'gold-gradient': 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
-        'card-gradient': 'linear-gradient(135deg, #2C3A67 0%, #1E2749 100%)',
+        // Ultra Dark Backgrounds
+        'ultra-dark': 'linear-gradient(135deg, #000000 0%, #0a0a0a 100%)',
+        'dark-casino': 'linear-gradient(135deg, #0d1015 0%, #121820 100%)',
+        
+        // Metallic Dark Green Gradients - Shiny & Fluid
+        'metallic-green': 'linear-gradient(135deg, #0a1f12 0%, #14331d 50%, #1a4d2e 100%)',
+        'metallic-green-shine': 'linear-gradient(135deg, #0f2817 0%, #1a4d2e 50%, #236d3f 100%)',
+        'metallic-green-glow': 'linear-gradient(135deg, #14331d 0%, #1a4d2e 40%, #2d8f52 70%, #34a85e 100%)',
+        'metallic-green-fluid': 'linear-gradient(90deg, #0a1f12 0%, #1a4d2e 25%, #236d3f 50%, #1a4d2e 75%, #0a1f12 100%)',
+        
+        // Electric Blue Glow Gradients
+        'electric-blue': 'linear-gradient(135deg, #0052cc 0%, #0066FF 50%, #1a7aff 100%)',
+        'electric-blue-metallic': 'linear-gradient(135deg, #0052cc 0%, #0059e6 50%, #0066FF 100%)',
+        
+        // Blue + Green Professional Combinations
+        'blue-emerald': 'linear-gradient(135deg, #0066FF 0%, #14b8a6 50%, #10b981 100%)',
+        'blue-teal': 'linear-gradient(135deg, #0066FF 0%, #14b8a6 100%)',
+        'emerald-blue': 'linear-gradient(135deg, #10b981 0%, #14b8a6 50%, #0066FF 100%)',
+        'metallic-electric': 'linear-gradient(135deg, #1a4d2e 0%, #0066FF 50%, #2d8f52 100%)',
+        
+        // Purple + Green Combinations
+        'purple-emerald': 'linear-gradient(135deg, #6366F1 0%, #14b8a6 50%, #10b981 100%)',
+        'violet-teal': 'linear-gradient(135deg, #8B5CF6 0%, #14b8a6 100%)',
+        
+        // Rainbow Glow Gradient for Premium Headings (with Green)
+        'rainbow-glow': 'linear-gradient(90deg, #0066FF 0%, #14b8a6 20%, #10b981 40%, #8B5CF6 60%, #EC4899 80%, #F59E0B 100%)',
+        'rainbow-metallic': 'linear-gradient(90deg, #0066FF 0%, #1a4d2e 25%, #2d8f52 50%, #8B5CF6 75%, #0066FF 100%)',
+        
+        // Premium Professional Gradients
+        'blue-purple-pink': 'linear-gradient(135deg, #0066FF 0%, #8B5CF6 50%, #EC4899 100%)',
+        'blue-emerald-gold': 'linear-gradient(135deg, #0066FF 0%, #10b981 50%, #F59E0B 100%)',
+        'emerald-purple-gold': 'linear-gradient(135deg, #10b981 0%, #8B5CF6 50%, #F59E0B 100%)',
+        
+        // Button Gradients - Electric Blue + Metallic Green
+        'btn-electric': 'linear-gradient(135deg, #0052cc 0%, #0066FF 100%)',
+        'btn-emerald': 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+        'btn-metallic': 'linear-gradient(135deg, #1a4d2e 0%, #2d8f52 100%)',
+        'btn-blue-emerald': 'linear-gradient(135deg, #0066FF 0%, #10b981 100%)',
+        'btn-multi': 'linear-gradient(135deg, #0066FF 0%, #14b8a6 50%, #8B5CF6 100%)',
+        
+        // Game specific
         'andar-gradient': 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
         'bahar-gradient': 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
-        // Glossy overlay for buttons
-        'glass-shine': 'linear-gradient(rgba(255,255,255,0.15), rgba(255,255,255,0))',
-        'premium-royal': 'linear-gradient(135deg, #141B3D 0%, #1E2749 100%)',
-        // Legacy Violet Gradients
-        'violet-gradient': 'linear-gradient(135deg, #1E1B4B, #312E81, #4C1D95)',
-        'purple-blue-gradient': 'linear-gradient(135deg, #8B5CF6, #3B82F6)',
-        'violet-dark-gradient': 'linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4C1D95 100%)',
+        
+        // Glossy overlay with metallic shine
+        'glass-shine': 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0) 100%)',
+        'metallic-shine': 'linear-gradient(135deg, rgba(45, 143, 82, 0.2) 0%, rgba(26, 77, 46, 0.1) 50%, rgba(10, 31, 18, 0) 100%)',
       },
       boxShadow: {
-        'gold': '0 4px 14px 0 rgba(255, 215, 0, 0.39)',
-        'gold-lg': '0 10px 40px 0 rgba(255, 215, 0, 0.5)',
-        // Premium glow effects
-        'glow-gold': '0 0 15px rgba(255, 215, 0, 0.6), inset 0 0 10px rgba(255, 215, 0, 0.4)',
-        'glow-royal': '0 0 15px rgba(10, 14, 39, 0.8), inset 0 0 20px rgba(0, 0, 0, 0.5)',
-        'gold-glow': '0 0 20px rgba(255, 215, 0, 0.5), 0 0 40px rgba(255, 215, 0, 0.3)',
-        'gold-glow-strong': '0 0 30px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 215, 0, 0.5)',
-        'gold-shine': '0 0 5px rgba(255, 215, 0, 0.8)',
-        'royal': '0 4px 14px 0 rgba(45, 55, 72, 0.6)',
-        'royal-lg': '0 10px 40px 0 rgba(45, 55, 72, 0.8)',
-        'neon-gold': '0 0 5px theme("colors.gold.DEFAULT"), 0 0 20px theme("colors.gold.DEFAULT")',
-        'neon-blue': '0 0 5px theme("colors.info.DEFAULT"), 0 0 20px theme("colors.info.DEFAULT")',
-        'neon-cyan': '0 0 20px rgba(0, 245, 255, 0.6), 0 0 40px rgba(0, 245, 255, 0.4)',
-        'neon-cyan-strong': '0 0 30px rgba(0, 245, 255, 0.9), 0 0 60px rgba(0, 245, 255, 0.6)',
+        // Electric Blue Glows - Primary Theme
+        'glow-blue': '0 0 10px rgba(0, 102, 255, 0.5), 0 0 20px rgba(0, 102, 255, 0.3)',
+        'glow-blue-md': '0 0 15px rgba(0, 102, 255, 0.6), 0 0 30px rgba(0, 102, 255, 0.4)',
+        'glow-blue-lg': '0 0 20px rgba(0, 102, 255, 0.7), 0 0 40px rgba(0, 102, 255, 0.5)',
+        'glow-blue-xl': '0 0 30px rgba(0, 102, 255, 0.8), 0 0 60px rgba(0, 102, 255, 0.6), 0 0 90px rgba(0, 102, 255, 0.4)',
+        
+        // Emerald Green Glows - Professional Accent
+        'glow-emerald': '0 0 10px rgba(16, 185, 129, 0.5), 0 0 20px rgba(16, 185, 129, 0.3)',
+        'glow-emerald-md': '0 0 15px rgba(16, 185, 129, 0.6), 0 0 30px rgba(16, 185, 129, 0.4)',
+        'glow-emerald-lg': '0 0 20px rgba(16, 185, 129, 0.7), 0 0 40px rgba(16, 185, 129, 0.5)',
+        
+        // Teal Glows - Bridge Color
+        'glow-teal': '0 0 10px rgba(20, 184, 166, 0.5), 0 0 20px rgba(20, 184, 166, 0.3)',
+        'glow-teal-md': '0 0 15px rgba(20, 184, 166, 0.6), 0 0 30px rgba(20, 184, 166, 0.4)',
+        'glow-teal-lg': '0 0 20px rgba(20, 184, 166, 0.7), 0 0 40px rgba(20, 184, 166, 0.5)',
+        
+        // Metallic Green Glows - Shiny Subtle
+        'glow-metallic': '0 0 10px rgba(45, 143, 82, 0.4), 0 0 20px rgba(26, 77, 46, 0.3)',
+        'glow-metallic-md': '0 0 15px rgba(45, 143, 82, 0.5), 0 0 30px rgba(26, 77, 46, 0.4)',
+        'glow-metallic-lg': '0 0 20px rgba(52, 168, 94, 0.6), 0 0 40px rgba(45, 143, 82, 0.5)',
+        
+        // Purple Glows
+        'glow-purple': '0 0 10px rgba(99, 102, 241, 0.5), 0 0 20px rgba(99, 102, 241, 0.3)',
+        'glow-purple-md': '0 0 15px rgba(99, 102, 241, 0.6), 0 0 30px rgba(99, 102, 241, 0.4)',
+        'glow-purple-lg': '0 0 20px rgba(99, 102, 241, 0.7), 0 0 40px rgba(99, 102, 241, 0.5)',
+        
+        // Violet Glows
+        'glow-violet': '0 0 10px rgba(139, 92, 246, 0.5), 0 0 20px rgba(139, 92, 246, 0.3)',
+        'glow-violet-md': '0 0 15px rgba(139, 92, 246, 0.6), 0 0 30px rgba(139, 92, 246, 0.4)',
+        
+        // Pink Accent Glows
+        'glow-pink': '0 0 10px rgba(236, 72, 153, 0.5), 0 0 20px rgba(236, 72, 153, 0.3)',
+        'glow-pink-md': '0 0 15px rgba(236, 72, 153, 0.6), 0 0 30px rgba(236, 72, 153, 0.4)',
+        
+        // Professional Multi-color Glows
+        'glow-multi': '0 0 10px rgba(0, 102, 255, 0.4), 0 0 20px rgba(20, 184, 166, 0.3), 0 0 30px rgba(139, 92, 246, 0.2)',
+        'glow-rainbow': '0 0 15px rgba(0, 102, 255, 0.4), 0 0 30px rgba(16, 185, 129, 0.3), 0 0 45px rgba(139, 92, 246, 0.2), 0 0 60px rgba(236, 72, 153, 0.1)',
+        'glow-professional': '0 0 10px rgba(0, 102, 255, 0.4), 0 0 20px rgba(16, 185, 129, 0.3), 0 0 30px rgba(45, 143, 82, 0.2)',
+        
+        // Inner glows for ultra-dark cards
+        'inner-glow-blue': 'inset 0 0 30px rgba(0, 102, 255, 0.1)',
+        'inner-glow-emerald': 'inset 0 0 30px rgba(16, 185, 129, 0.08)',
+        'inner-glow-metallic': 'inset 0 0 30px rgba(45, 143, 82, 0.08)',
+        'inner-glow-multi': 'inset 0 0 30px rgba(0, 102, 255, 0.08), inset 0 0 20px rgba(16, 185, 129, 0.05)',
+        
+        // Premium 3D effects with professional glows
+        'ultra-3d': '0 20px 50px -10px rgba(0, 0, 0, 0.7), 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 102, 255, 0.3)',
+        'ultra-3d-emerald': '0 20px 50px -10px rgba(0, 0, 0, 0.7), 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 20px rgba(16, 185, 129, 0.3)',
+        'floating': '0 30px 60px -15px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 102, 255, 0.4)',
+        'floating-emerald': '0 30px 60px -15px rgba(0, 0, 0, 0.8), 0 0 40px rgba(16, 185, 129, 0.4)',
+        
+        // Metallic sheen effects
+        'metallic-sheen': '0 4px 6px -1px rgba(45, 143, 82, 0.1), 0 2px 4px -1px rgba(26, 77, 46, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+        'metallic-elevated': '0 10px 15px -3px rgba(45, 143, 82, 0.15), 0 4px 6px -2px rgba(26, 77, 46, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+        
+        // Game specific glows
         'andar-glow': '0 0 20px rgba(239, 68, 68, 0.6), 0 0 40px rgba(239, 68, 68, 0.3)',
         'bahar-glow': '0 0 20px rgba(59, 130, 246, 0.6), 0 0 40px rgba(59, 130, 246, 0.3)',
-        // Legacy Violet Glows
-        'violet-glow': '0 0 20px rgba(139, 92, 246, 0.6), 0 0 40px rgba(139, 92, 246, 0.4)',
-        'purple-glow': '0 0 15px rgba(139, 92, 246, 0.8), inset 0 0 10px rgba(139, 92, 246, 0.4)',
       },
       animation: {
         'spin-slow': 'spin 3s linear infinite',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'pulse-gold': 'pulseGold 2s ease-in-out infinite',
         'pulse-neon': 'pulseNeon 1.5s ease-in-out infinite',
+        'neon-pulse': 'neonPulse 2s ease-in-out infinite',
+        'neon-flicker': 'neonFlicker 3s ease-in-out infinite',
         'bounce-slow': 'bounce 2s infinite',
         'shine': 'shine 2s linear infinite',
         'glow': 'glow 2s ease-in-out infinite',
+        'glow-electric': 'glowElectric 2s ease-in-out infinite',
+        'glow-emerald': 'glowEmerald 2s ease-in-out infinite',
+        'glow-metallic': 'glowMetallic 3s ease-in-out infinite',
+        'rainbow-shift': 'rainbowShift 8s linear infinite',
+        'metallic-flow': 'metallicFlow 4s ease-in-out infinite',
+        'fluid-gradient': 'fluidGradient 6s ease-in-out infinite',
         'slide-in': 'slideIn 0.3s ease-out',
         'slide-out': 'slideOut 0.3s ease-in',
         'fade-in': 'fadeIn 0.3s ease-in',
@@ -180,7 +288,6 @@ export default {
         // Legacy Animations
         'card-fly': 'cardFly 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)',
         'confetti-fall': 'confettiFall 3s linear forwards',
-        'pulse-gold-legacy': 'pulseGoldLegacy 2s ease-in-out infinite',
         'glow-pulse': 'glowPulse 2s ease-in-out infinite',
         'bounce-in': 'bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
         'scale-rotate': 'scaleRotate 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
@@ -189,7 +296,6 @@ export default {
         'timer-urgent': 'timerUrgent 1s infinite',
         'slide-in-left': 'slideInLeft 0.5s ease-out',
         'slide-in-right': 'slideInRight 0.5s ease-out',
-        'shimmer-legacy': 'shimmerLegacy 2s ease-in-out infinite',
       },
       keyframes: {
         shine: {
@@ -197,12 +303,85 @@ export default {
           '100%': { transform: 'translateX(100%)' },
         },
         glow: {
-          '0%, 100%': { boxShadow: '0 0 5px theme("colors.gold.DEFAULT"), 0 0 20px theme("colors.gold.DEFAULT")' },
-          '50%': { boxShadow: '0 0 20px theme("colors.gold.DEFAULT"), 0 0 40px theme("colors.gold.DEFAULT")' },
+          '0%, 100%': { boxShadow: '0 0 5px rgba(0, 255, 209, 0.5), 0 0 20px rgba(0, 255, 209, 0.3)' },
+          '50%': { boxShadow: '0 0 20px rgba(0, 255, 209, 0.8), 0 0 40px rgba(0, 255, 209, 0.5)' },
         },
-        pulseGold: {
-          '0%, 100%': { opacity: '1', transform: 'scale(1)' },
-          '50%': { opacity: '0.8', transform: 'scale(1.05)' },
+        glowElectric: {
+          '0%, 100%': { 
+            boxShadow: '0 0 10px rgba(0, 102, 255, 0.5), 0 0 20px rgba(0, 102, 255, 0.3)',
+            filter: 'brightness(1)'
+          },
+          '50%': { 
+            boxShadow: '0 0 20px rgba(0, 102, 255, 0.8), 0 0 40px rgba(0, 102, 255, 0.6), 0 0 60px rgba(0, 102, 255, 0.4)',
+            filter: 'brightness(1.2)'
+          },
+        },
+        glowEmerald: {
+          '0%, 100%': { 
+            boxShadow: '0 0 10px rgba(16, 185, 129, 0.5), 0 0 20px rgba(16, 185, 129, 0.3)',
+            filter: 'brightness(1)'
+          },
+          '50%': { 
+            boxShadow: '0 0 20px rgba(16, 185, 129, 0.8), 0 0 40px rgba(16, 185, 129, 0.6)',
+            filter: 'brightness(1.15)'
+          },
+        },
+        glowMetallic: {
+          '0%, 100%': { 
+            boxShadow: '0 0 10px rgba(45, 143, 82, 0.4), 0 0 20px rgba(26, 77, 46, 0.3)',
+            filter: 'brightness(1) saturate(1)'
+          },
+          '50%': { 
+            boxShadow: '0 0 20px rgba(52, 168, 94, 0.6), 0 0 40px rgba(45, 143, 82, 0.5)',
+            filter: 'brightness(1.15) saturate(1.2)'
+          },
+        },
+        rainbowShift: {
+          '0%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+          '100%': { backgroundPosition: '0% 50%' },
+        },
+        metallicFlow: {
+          '0%, 100%': { 
+            backgroundPosition: '0% 50%',
+            filter: 'brightness(1) saturate(1)'
+          },
+          '25%': { 
+            backgroundPosition: '25% 50%',
+            filter: 'brightness(1.1) saturate(1.1)'
+          },
+          '50%': { 
+            backgroundPosition: '50% 50%',
+            filter: 'brightness(1.2) saturate(1.2)'
+          },
+          '75%': { 
+            backgroundPosition: '75% 50%',
+            filter: 'brightness(1.1) saturate(1.1)'
+          },
+        },
+        fluidGradient: {
+          '0%, 100%': { 
+            backgroundPosition: '0% 50%',
+            backgroundSize: '200% 200%'
+          },
+          '50%': { 
+            backgroundPosition: '100% 50%',
+            backgroundSize: '200% 200%'
+          },
+        },
+        neonPulse: {
+          '0%, 100%': {
+            filter: 'brightness(1)',
+            boxShadow: '0 0 5px currentColor, 0 0 20px currentColor'
+          },
+          '50%': {
+            filter: 'brightness(1.3)',
+            boxShadow: '0 0 10px currentColor, 0 0 40px currentColor, 0 0 60px currentColor'
+          },
+        },
+        neonFlicker: {
+          '0%, 19%, 21%, 23%, 25%, 54%, 56%, 100%': { opacity: '1' },
+          '20%, 24%, 55%': { opacity: '0.7' },
         },
         pulseNeon: {
           '0%, 100%': { opacity: '1' },
@@ -293,20 +472,12 @@ export default {
             opacity: '0',
           },
         },
-        pulseGoldLegacy: {
-          '0%, 100%': {
-            boxShadow: '0 0 10px rgba(255, 215, 0, 0.5)',
-          },
-          '50%': {
-            boxShadow: '0 0 30px rgba(255, 215, 0, 1)',
-          },
-        },
         glowPulse: {
           '0%, 100%': {
-            boxShadow: '0 0 5px rgba(255, 209, 0, 0.5)',
+            boxShadow: '0 0 5px rgba(0, 102, 255, 0.5)',
           },
           '50%': {
-            boxShadow: '0 0 20px rgba(255, 209, 0, 0.8), 0 0 30px rgba(255, 209, 0, 0.6)',
+            boxShadow: '0 0 20px rgba(0, 102, 255, 0.8), 0 0 30px rgba(0, 102, 255, 0.6)',
           },
         },
         bounceIn: {
@@ -385,14 +556,6 @@ export default {
           to: {
             transform: 'translateX(0)',
             opacity: '1',
-          },
-        },
-        shimmerLegacy: {
-          '0%': {
-            backgroundPosition: '-200% 0',
-          },
-          '100%': {
-            backgroundPosition: '200% 0',
           },
         },
       },

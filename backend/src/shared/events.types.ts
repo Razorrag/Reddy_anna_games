@@ -1,130 +1,115 @@
 /**
- * SINGLE SOURCE OF TRUTH FOR ALL WEBSOCKET EVENTS
- * 
- * This file defines all WebSocket event names used across the application.
- * Import this in both frontend and backend to ensure consistency.
- * 
- * Convention: 'category:action' format
- * Example: 'game:started', 'bet:placed'
+ * Shared Event Types and Constants
+ * Used by both backend and frontend for WebSocket communication
  */
 
+// Game Event Constants
 export const GAME_EVENTS = {
-  // ============================================
-  // CONNECTION EVENTS
-  // ============================================
+  // Connection Events
   JOIN: 'game:join',
   JOINED: 'game:joined',
   LEAVE: 'game:leave',
   PLAYER_JOINED: 'game:player_joined',
   PLAYER_LEFT: 'game:player_left',
-  ERROR: 'game:error',
-
-  // ============================================
-  // GAME LIFECYCLE EVENTS
-  // ============================================
-  ROUND_CREATED: 'game:round_created',
-  ROUND_STARTED: 'game:round_started',
-  BETTING_CLOSED: 'game:betting_closed',
-  DEALING_STARTED: 'game:dealing_started',
-  CARD_DEALT: 'game:card_dealt',
-  WINNER_DETERMINED: 'game:winner_determined',
-  PAYOUTS_PROCESSED: 'game:payouts_processed',
-  ROUND_2_ANNOUNCEMENT: 'game:round_2_announcement',
-
-  // ============================================
-  // BETTING EVENTS
-  // ============================================
+  
+  // Round Lifecycle Events
+  ROUND_CREATED: 'round:created',
+  ROUND_STARTED: 'round:started',
+  BETTING_CLOSED: 'round:betting_closed',
+  DEALING_STARTED: 'round:dealing_started',
+  WINNER_DETERMINED: 'round:winner_determined',
+  ROUND_2_ANNOUNCEMENT: 'round:round_2_announcement',
+  
+  // Betting Events
   BET_PLACE: 'bet:place',
   BET_PLACED: 'bet:placed',
   BET_CANCEL: 'bet:cancel',
   BET_CANCELLED: 'bet:cancelled',
   BET_ERROR: 'bet:error',
+  BET_UNDO: 'bet:undo',
   BET_UNDONE: 'bet:undone',
+  REBET: 'bet:rebet',
   REBET_PLACED: 'bet:rebet_placed',
-
-  // ============================================
-  // REAL-TIME UPDATES
-  // ============================================
-  STATS_UPDATED: 'round:stats_updated',
-  BALANCE_UPDATED: 'user:balance_updated',
-  PAYOUT_RECEIVED: 'user:payout_received',
+  REBET_SUCCESS: 'bet:rebet_success',
+  DOUBLE_BETS: 'bet:double',
+  DOUBLE_BETS_SUCCESS: 'bet:double_success',
+  
+  // Card Events
+  CARD_DEALT: 'card:dealt',
+  
+  // Timer Events
   TIMER_UPDATE: 'timer:update',
-
-  // ============================================
-  // ADMIN EVENTS
-  // ============================================
+  
+  // Balance & Payout Events
+  BALANCE_UPDATED: 'balance:updated',
+  PAYOUTS_PROCESSED: 'round:payouts_processed',
+  PAYOUT_RECEIVED: 'payout:received',
+  
+  // Statistics Events
+  STATS_UPDATED: 'round:stats_updated',
+  ROUND_GET_BETS: 'round:get_bets',
+  ROUND_BETS: 'round:bets',
+  
+  // Admin Events
   ADMIN_CREATE_ROUND: 'admin:create_round',
   ADMIN_START_ROUND: 'admin:start_round',
   ADMIN_CLOSE_BETTING: 'admin:close_betting',
   ADMIN_DEAL_CARDS: 'admin:deal_cards',
+  ADMIN_DECLARE_WINNER: 'admin:declare_winner',
   ADMIN_PROCESS_PAYOUTS: 'admin:process_payouts',
   ADMIN_GET_STATS: 'admin:get_stats',
   ADMIN_STATS: 'admin:stats',
   ADMIN_ERROR: 'admin:error',
-
-  // ============================================
-  // ROUND QUERIES
-  // ============================================
-  ROUND_GET_BETS: 'round:get_bets',
-  ROUND_BETS: 'round:bets',
+  
+  // Error Events
+  ERROR: 'error',
 } as const;
 
 // Type for event names
-export type GameEventName = typeof GAME_EVENTS[keyof typeof GAME_EVENTS];
+export type GameEvent = typeof GAME_EVENTS[keyof typeof GAME_EVENTS];
 
-// ============================================
-// EVENT PAYLOAD TYPES
-// ============================================
-
-export interface BetPlacePayload {
-  roundId: string;
-  betSide: 'andar' | 'bahar';
-  amount: number;
-  tempId?: string; // For optimistic updates
-}
-
+// Event Payload Types
 export interface BetPlacedPayload {
   betId: string;
   tempId?: string;
-  bet: any;
+  bet: {
+    id: string;
+    userId: string;
+    roundId: string;
+    amount: number;
+    side: 'andar' | 'bahar';
+    betRound: number;
+    status: string;
+    createdAt: Date;
+  };
   balance: {
     mainBalance: number;
     bonusBalance: number;
   };
 }
 
-export interface StatsUpdatedPayload {
-  roundId: string;
-  round1Totals?: {
-    andar: number;
-    bahar: number;
+export interface RoundCreatedPayload {
+  round: {
+    id: string;
+    gameId: string;
+    roundNumber: number;
+    jokerCard: string;
+    status: string;
+    createdAt: Date;
   };
-  round2Totals?: {
-    andar: number;
-    bahar: number;
+  jokerCard: string;
+}
+
+export interface RoundStartedPayload {
+  round: {
+    id: string;
+    gameId: string;
+    roundNumber: number;
+    jokerCard: string;
+    status: string;
+    bettingStartTime: Date;
   };
-  totalAndarBets?: number;
-  totalBaharBets?: number;
-  totalBetAmount?: number;
-}
-
-export interface TimerUpdatePayload {
-  roundId: string;
-  remaining: number;
-}
-
-export interface BalanceUpdatePayload {
-  userId: string;
-  mainBalance: number;
-  bonusBalance: number;
-  change?: number;
-  reason?: string;
-}
-
-export interface GameJoinedPayload {
-  game: any;
-  currentRound: any;
-  timestamp: Date;
+  bettingDuration: number;
 }
 
 export interface CardDealtPayload {
@@ -142,4 +127,41 @@ export interface WinnerDeterminedPayload {
   winningCard: string;
   winnerDisplay: string;
   totalCards: number;
+}
+
+export interface TimerUpdatePayload {
+  roundId: string;
+  remaining: number;
+}
+
+export interface BalanceUpdatedPayload {
+  userId: string;
+  mainBalance: number;
+  bonusBalance: number;
+  change?: number;
+  reason?: string;
+}
+
+export interface StatsUpdatedPayload {
+  roundId: string;
+  totalAndarBets: string;
+  totalBaharBets: string;
+  totalBetAmount: string;
+}
+
+export interface PayoutReceivedPayload {
+  roundId: string;
+  amount: number;
+  winningSide: string;
+}
+
+export interface BetErrorPayload {
+  message: string;
+  tempId?: string;
+  code?: string;
+}
+
+export interface ErrorPayload {
+  message: string;
+  code?: string;
 }

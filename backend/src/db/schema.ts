@@ -10,7 +10,7 @@ export const betStatusEnum = pgEnum('bet_status', ['pending', 'won', 'lost', 'ca
 export const transactionTypeEnum = pgEnum('transaction_type', ['deposit', 'withdrawal', 'bet', 'win', 'bonus', 'commission', 'refund']);
 export const transactionStatusEnum = pgEnum('transaction_status', ['pending', 'completed', 'failed', 'cancelled']);
 export const bonusTypeEnum = pgEnum('bonus_type', ['signup', 'deposit', 'referral', 'loyalty']);
-export const bonusStatusEnum = pgEnum('bonus_status', ['active', 'completed', 'expired', 'cancelled']);
+export const bonusStatusEnum = pgEnum('bonus_status', ['locked', 'active', 'completed', 'expired', 'cancelled']);
 export const withdrawalStatusEnum = pgEnum('withdrawal_status', ['pending', 'approved', 'rejected', 'processing', 'completed']);
 
 // Users table
@@ -53,7 +53,7 @@ export const games = pgTable('games', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// Game Rounds table
+// Game Rounds table - Enhanced with card sequence tracking
 export const gameRounds = pgTable('game_rounds', {
   id: uuid('id').primaryKey().defaultRandom(),
   gameId: uuid('game_id').references(() => games.id).notNull(),
@@ -70,10 +70,29 @@ export const gameRounds = pgTable('game_rounds', {
   bettingEndTime: timestamp('betting_end_time'),
   startTime: timestamp('start_time').defaultNow().notNull(),
   endTime: timestamp('end_time'),
+  currentCardPosition: integer('current_card_position').default(0).notNull(),
+  expectedNextSide: varchar('expected_next_side', { length: 6 }).default('bahar'),
+  cardsDealt: integer('cards_dealt').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
   gameIdIdx: index('game_rounds_game_id_idx').on(table.gameId),
   statusIdx: index('game_rounds_status_idx').on(table.status),
+}));
+
+// Game Cards table - Track real stream cards dealt in each round
+export const gameCards = pgTable('game_cards', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  gameId: uuid('game_id').references(() => games.id).notNull(),
+  roundId: uuid('round_id').references(() => gameRounds.id).notNull(),
+  card: varchar('card', { length: 4 }).notNull(), // e.g., "KH" (King of Hearts), "AS" (Ace of Spades)
+  side: varchar('side', { length: 6 }).notNull(), // 'andar' or 'bahar'
+  position: integer('position').notNull(), // sequence order (1st, 2nd, 3rd...)
+  isWinningCard: boolean('is_winning_card').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  gameIdIdx: index('game_cards_game_id_idx').on(table.gameId),
+  roundIdIdx: index('game_cards_round_id_idx').on(table.roundId),
+  positionIdx: index('game_cards_position_idx').on(table.position),
 }));
 
 // Bets table
@@ -203,12 +222,14 @@ export const userBonuses = pgTable('user_bonuses', {
   wageringRequirement: decimal('wagering_requirement', { precision: 12, scale: 2 }).default('0.00').notNull(),
   wageringProgress: decimal('wagering_progress', { precision: 12, scale: 2 }).default('0.00').notNull(),
   status: bonusStatusEnum('status').default('active').notNull(),
+  linkedBonusId: uuid('linked_bonus_id'), // References the deposit bonus this referral bonus is linked to
   expiresAt: timestamp('expires_at'),
   completedAt: timestamp('completed_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
   userIdIdx: index('user_bonuses_user_id_idx').on(table.userId),
   statusIdx: index('user_bonuses_status_idx').on(table.status),
+  linkedBonusIdx: index('user_bonuses_linked_bonus_idx').on(table.linkedBonusId),
 }));
 
 // Deposits table

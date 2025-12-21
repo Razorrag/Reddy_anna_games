@@ -185,7 +185,7 @@ function App() {
               <Route path="/admin/users/:id">
                 {(params) => (
                   <AdminLayout>
-                    <AdminUserDetailsPage userId={params.id} />
+                    <AdminUserDetailsPage userId={params.id!} />
                   </AdminLayout>
                 )}
               </Route>
@@ -227,7 +227,7 @@ function App() {
               <Route path="/admin/partners/:id">
                 {(params) => (
                   <AdminLayout>
-                    <AdminPartnerDetailsPage partnerId={params.id} />
+                    <AdminPartnerDetailsPage partnerId={params.id!} />
                   </AdminLayout>
                 )}
               </Route>

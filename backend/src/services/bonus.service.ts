@@ -42,7 +42,7 @@ export class BonusService {
 
   // Create signup bonus
   async createSignupBonus(userId: string) {
-    const signupBonus = 50.00;
+    const signupBonus = 100.00; // Changed from 50 to 100 to match legacy
     const wageringRequired = signupBonus * 10;
     
     const [bonus] = await db.insert(userBonuses).values({
@@ -58,8 +58,13 @@ export class BonusService {
     return bonus;
   }
 
-  // Create referral bonus
-  async createReferralBonus(userId: string, referredUserId: string, depositAmount: number = 1000) {
+  // Create referral bonus in LOCKED state (requires deposit bonus to unlock)
+  async createReferralBonus(
+    userId: string,
+    referredUserId: string,
+    depositAmount: number,
+    linkedDepositBonusId: string
+  ) {
     const referralBonus = depositAmount * 0.05;
     const wageringRequired = referralBonus * 30;
     
@@ -69,7 +74,8 @@ export class BonusService {
       amount: referralBonus.toFixed(2),
       wageringRequirement: wageringRequired.toFixed(2),
       wageringProgress: '0.00',
-      status: 'active',
+      status: 'locked', // Start in locked state - will unlock when deposit bonus completes
+      linkedBonusId: linkedDepositBonusId, // Link to the deposit bonus
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     }).returning();
 
@@ -111,14 +117,15 @@ export class BonusService {
     return bonus;
   }
 
-  // Update wagering progress
+  // Update wagering progress with FIFO processing
   async updateWageringProgress(userId: string, betAmount: number) {
+    // Get active bonuses in FIFO order (oldest first)
     const activeBonuses = await db.query.userBonuses.findMany({
       where: and(
         eq(userBonuses.userId, userId),
         eq(userBonuses.status, 'active')
       ),
-      orderBy: [userBonuses.createdAt],
+      orderBy: [userBonuses.createdAt], // FIFO: Process oldest first
     });
 
     let remainingWagering = betAmount;
@@ -150,8 +157,14 @@ export class BonusService {
       updatedBonuses.push(updatedBonus);
       remainingWagering -= wageringToAdd;
 
+      // When deposit bonus completes, unlock any linked referral bonuses
       if (isCompleted) {
         await this.unlockBonus(bonus.id);
+        
+        // Check if this is a deposit bonus and unlock linked referral bonuses
+        if (bonus.bonusType === 'deposit') {
+          await this.unlockLinkedReferralBonuses(bonus.id);
+        }
       }
     }
 
@@ -198,6 +211,27 @@ export class BonusService {
     });
 
     return bonus;
+  }
+
+  // Unlock linked referral bonuses when deposit bonus completes
+  async unlockLinkedReferralBonuses(depositBonusId: string) {
+    // Find all locked referral bonuses linked to this deposit bonus
+    const linkedBonuses = await db.query.userBonuses.findMany({
+      where: and(
+        eq(userBonuses.linkedBonusId, depositBonusId),
+        eq(userBonuses.bonusType, 'referral'),
+        eq(userBonuses.status, 'locked')
+      ),
+    });
+
+    // Unlock each linked referral bonus (change status from locked to active)
+    for (const bonus of linkedBonuses) {
+      await db.update(userBonuses).set({
+        status: 'active', // Change from locked to active
+      }).where(eq(userBonuses.id, bonus.id));
+    }
+
+    return linkedBonuses;
   }
 
   // Get bonus summary for a user

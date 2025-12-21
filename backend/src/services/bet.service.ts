@@ -371,6 +371,235 @@ export class BetService {
 
     return bet;
   }
+
+  /**
+   * Undo the most recent bet placed by the user in the current round
+   * Returns the refunded amount to user's balance and updates round totals
+   */
+  async undoBet(betId: string, userId: string) {
+    const bet = await db.query.bets.findFirst({
+      where: and(eq(bets.id, betId), eq(bets.userId, userId)),
+    });
+
+    if (!bet) throw new AppError('Bet not found', 404);
+    if (bet.status !== 'pending') throw new AppError('Only pending bets can be undone', 400);
+
+    const round = await db.query.gameRounds.findFirst({
+      where: eq(gameRounds.id, bet.roundId),
+    });
+
+    if (!round) throw new AppError('Round not found', 404);
+    if (round.status !== 'betting') {
+      throw new AppError('Cannot undo bet after betting has closed', 400);
+    }
+
+    const betAmount = parseFloat(bet.amount);
+
+    // Refund the bet amount to user's balance
+    await userService.updateBalance(userId, betAmount, 'add');
+
+    // Mark bet as cancelled
+    await db.update(bets).set({
+      status: 'cancelled',
+      payoutAmount: '0.00'
+    }).where(eq(bets.id, betId));
+
+    // Update round totals
+    if (bet.betSide === 'andar') {
+      await db.update(gameRounds).set({
+        totalAndarBets: sql`${gameRounds.totalAndarBets} - ${betAmount}`,
+        totalBetAmount: sql`${gameRounds.totalBetAmount} - ${betAmount}`,
+      }).where(eq(gameRounds.id, bet.roundId));
+    } else {
+      await db.update(gameRounds).set({
+        totalBaharBets: sql`${gameRounds.totalBaharBets} - ${betAmount}`,
+        totalBetAmount: sql`${gameRounds.totalBetAmount} - ${betAmount}`,
+      }).where(eq(gameRounds.id, bet.roundId));
+    }
+
+    // Create refund transaction
+    await db.insert(transactions).values({
+      userId,
+      type: 'refund',
+      amount: betAmount.toFixed(2),
+      status: 'completed',
+      description: `Bet undone - refunded ₹${betAmount.toFixed(2)}`,
+      referenceId: bet.id,
+    });
+
+    // Broadcast update
+    if (this.io) {
+      const updatedBalance = await userService.getBalance(userId);
+      const updatedRound = await db.query.gameRounds.findFirst({
+        where: eq(gameRounds.id, bet.roundId),
+      });
+
+      // Notify user of undo success
+      this.io.to(`user:${userId}`).emit(GAME_EVENTS.BET_UNDONE, {
+        betId: bet.id,
+        refundAmount: betAmount,
+        balance: {
+          mainBalance: updatedBalance.mainBalance,
+          bonusBalance: updatedBalance.bonusBalance,
+        },
+        message: 'Bet successfully undone'
+      });
+
+      // Broadcast updated round stats
+      if (updatedRound) {
+        this.io.to(`game:${round.gameId}`).emit(GAME_EVENTS.STATS_UPDATED, {
+          roundId: bet.roundId,
+          totalAndarBets: parseFloat(updatedRound.totalAndarBets),
+          totalBaharBets: parseFloat(updatedRound.totalBaharBets),
+          totalBetAmount: parseFloat(updatedRound.totalBetAmount),
+        });
+      }
+    }
+
+    return { bet, refundAmount: betAmount };
+  }
+
+  /**
+   * Re-place all bets from the previous completed round in the current round
+   * Maintains the same bet sides and amounts
+   */
+  async rebetPreviousRound(userId: string, currentRoundId: string) {
+    const currentRound = await db.query.gameRounds.findFirst({
+      where: eq(gameRounds.id, currentRoundId),
+    });
+
+    if (!currentRound) throw new AppError('Current round not found', 404);
+    if (currentRound.status !== 'betting') {
+      throw new AppError('Betting is closed for this round', 400);
+    }
+
+    // Find the most recent completed round for this game
+    const previousRound = await db.query.gameRounds.findFirst({
+      where: and(
+        eq(gameRounds.gameId, currentRound.gameId),
+        eq(gameRounds.status, 'completed')
+      ),
+      orderBy: (gameRounds, { desc }) => [desc(gameRounds.createdAt)],
+    });
+
+    if (!previousRound) {
+      throw new AppError('No previous round found to rebet', 404);
+    }
+
+    // Get all user's bets from the previous round
+    const previousBets = await db.query.bets.findMany({
+      where: and(
+        eq(bets.userId, userId),
+        eq(bets.roundId, previousRound.id)
+      ),
+    });
+
+    if (previousBets.length === 0) {
+      throw new AppError('No previous bets found to rebet', 404);
+    }
+
+    // Calculate total amount needed
+    const totalAmount = previousBets.reduce((sum, bet) => sum + parseFloat(bet.amount), 0);
+
+    // Check if user has sufficient balance
+    const canBet = await userService.canPlaceBet(userId, totalAmount);
+    if (!canBet) {
+      throw new AppError(`Insufficient balance. Need ₹${totalAmount.toFixed(2)}`, 400);
+    }
+
+    // Place all bets from previous round
+    const newBets = [];
+    for (const prevBet of previousBets) {
+      const bet = await this.placeBet(
+        userId,
+        currentRoundId,
+        prevBet.betSide as 'andar' | 'bahar',
+        parseFloat(prevBet.amount)
+      );
+      newBets.push(bet);
+    }
+
+    // Broadcast rebet success
+    if (this.io) {
+      const updatedBalance = await userService.getBalance(userId);
+      this.io.to(`user:${userId}`).emit(GAME_EVENTS.REBET_SUCCESS, {
+        bets: newBets,
+        totalAmount,
+        balance: {
+          mainBalance: updatedBalance.mainBalance,
+          bonusBalance: updatedBalance.bonusBalance,
+        },
+        message: `${newBets.length} bet(s) replayed from previous round`
+      });
+    }
+
+    return { bets: newBets, totalAmount, count: newBets.length };
+  }
+
+  /**
+   * Double all current pending bets in the round
+   * Places new bets matching existing ones with the same amounts
+   */
+  async doubleBets(userId: string, roundId: string) {
+    const round = await db.query.gameRounds.findFirst({
+      where: eq(gameRounds.id, roundId),
+    });
+
+    if (!round) throw new AppError('Round not found', 404);
+    if (round.status !== 'betting') {
+      throw new AppError('Betting is closed for this round', 400);
+    }
+
+    // Get all user's current pending bets in this round
+    const currentBets = await db.query.bets.findMany({
+      where: and(
+        eq(bets.userId, userId),
+        eq(bets.roundId, roundId),
+        eq(bets.status, 'pending')
+      ),
+    });
+
+    if (currentBets.length === 0) {
+      throw new AppError('No current bets found to double', 404);
+    }
+
+    // Calculate total amount needed to double
+    const totalAmount = currentBets.reduce((sum, bet) => sum + parseFloat(bet.amount), 0);
+
+    // Check if user has sufficient balance
+    const canBet = await userService.canPlaceBet(userId, totalAmount);
+    if (!canBet) {
+      throw new AppError(`Insufficient balance. Need ₹${totalAmount.toFixed(2)} to double bets`, 400);
+    }
+
+    // Place matching bets to double
+    const newBets = [];
+    for (const currentBet of currentBets) {
+      const bet = await this.placeBet(
+        userId,
+        roundId,
+        currentBet.betSide as 'andar' | 'bahar',
+        parseFloat(currentBet.amount)
+      );
+      newBets.push(bet);
+    }
+
+    // Broadcast double success
+    if (this.io) {
+      const updatedBalance = await userService.getBalance(userId);
+      this.io.to(`user:${userId}`).emit(GAME_EVENTS.DOUBLE_BETS_SUCCESS, {
+        bets: newBets,
+        totalAmount,
+        balance: {
+          mainBalance: updatedBalance.mainBalance,
+          bonusBalance: updatedBalance.bonusBalance,
+        },
+        message: `Doubled ${newBets.length} bet(s) - ₹${totalAmount.toFixed(2)} added`
+      });
+    }
+
+    return { bets: newBets, totalAmount, count: newBets.length };
+  }
 }
 
 export const betService = new BetService();

@@ -24,7 +24,7 @@ interface PartnerLoginResponse {
  */
 export const usePartnerLogin = () => {
   const [, setLocation] = useLocation();
-  const setAuth = useAuthStore((state) => state.setAuth);
+  const login = useAuthStore((state) => state.login);
 
   return useMutation({
     mutationFn: async (data: PartnerLoginData) => {
@@ -36,7 +36,7 @@ export const usePartnerLogin = () => {
     },
     onSuccess: (data) => {
       // Store auth data
-      setAuth(data.user, data.token);
+      login(data.user, data.token);
       
       // Navigate to partner dashboard
       setLocation('/partner/dashboard');

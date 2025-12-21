@@ -1,18 +1,12 @@
 import { db } from '../db';
-import { games, gameRounds, bets, gameHistory, gameStatistics } from '../db/schema';
-import { eq, and, desc, sql, gte, lte } from 'drizzle-orm';
+import { games, gameRounds, bets, gameHistory, gameStatistics, gameCards, users } from '../db/schema';
+import { eq, and, desc, sql, gte, lte, asc } from 'drizzle-orm';
 import { AppError } from '../middleware/errorHandler';
 import type { Server as SocketIOServer } from 'socket.io';
 import { GAME_EVENTS } from '../shared/events.types';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-
-interface Card {
-  suit: string;
-  rank: string;
-  display: string;
-}
 
 export class GameService {
   private io: SocketIOServer | null = null;
@@ -22,23 +16,34 @@ export class GameService {
     this.io = io;
   }
 
-  private createDeck(): Card[] {
-    const deck: Card[] = [];
-    for (const suit of SUITS) {
-      for (const rank of RANKS) {
-        deck.push({ suit, rank, display: `${rank}${suit}` });
-      }
-    }
-    return this.shuffleDeck(deck);
+  // Card validation helper
+  private isValidCard(card: string): boolean {
+    if (!card || card.length < 2 || card.length > 3) return false;
+    const rank = card.slice(0, -1);
+    const suit = card.slice(-1);
+    return RANKS.includes(rank) && SUITS.includes(suit);
   }
 
-  private shuffleDeck(deck: Card[]): Card[] {
-    const shuffled = [...deck];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
+  // Check if two cards match (same rank, different suit allowed)
+  private cardsMatch(card1: string, card2: string): boolean {
+    if (!card1 || !card2 || card1.length < 2 || card2.length < 2) return false;
+    const rank1 = card1.slice(0, -1);
+    const rank2 = card2.slice(0, -1);
+    return rank1 === rank2;
+  }
+
+  // Calculate expected next side based on round and card count
+  private calculateExpectedNextSide(roundNumber: number, cardsDealt: number): 'andar' | 'bahar' {
+    if (roundNumber === 1) {
+      // Round 1: Bahar first (position 1), then Andar (position 2)
+      return cardsDealt % 2 === 0 ? 'bahar' : 'andar';
+    } else if (roundNumber === 2) {
+      // Round 2: Continue alternating - position 3 is Bahar, position 4 is Andar
+      return (cardsDealt + 1) % 2 === 0 ? 'bahar' : 'andar';
+    } else {
+      // Round 3+: Continue alternating
+      return cardsDealt % 2 === 0 ? 'bahar' : 'andar';
     }
-    return shuffled;
   }
 
   async getActiveGame(gameId?: string) {
@@ -76,11 +81,31 @@ export class GameService {
       orderBy: [desc(gameRounds.createdAt)],
     });
 
-    return round;
+    if (!round) {
+      return null;
+    }
+
+    // Get current card state for this round
+    const cards = await db.query.gameCards.findMany({
+      where: eq(gameCards.roundId, round.id),
+      orderBy: [asc(gameCards.position)],
+    });
+
+    return {
+      ...round,
+      currentCardPosition: cards.length,
+      expectedNextSide: this.calculateExpectedNextSide(round.roundNumber, cards.length),
+      totalCardsDealt: cards.length,
+    };
   }
 
-  async createNewRound(gameId: string) {
+  async createNewRound(gameId: string, openingCard: string) {
     await this.getActiveGame(gameId);
+
+    // Validate opening card format
+    if (!this.isValidCard(openingCard)) {
+      throw new AppError('Invalid opening card format. Use format like "AH", "KS", "10D"', 400);
+    }
     
     const lastRound = await db.query.gameRounds.findFirst({
       where: eq(gameRounds.gameId, gameId),
@@ -88,15 +113,13 @@ export class GameService {
     });
 
     const newRoundNumber = (lastRound?.roundNumber || 0) + 1;
-    const deck = this.createDeck();
-    const jokerCard = deck[0]!;
     const bettingDuration = 30; // 30 seconds default
 
     const [newRound] = await db.insert(gameRounds).values({
       gameId,
       roundNumber: newRoundNumber,
       status: 'betting',
-      jokerCard: jokerCard.display,
+      jokerCard: openingCard, // REAL card from stream
       totalAndarBets: '0.00',
       totalBaharBets: '0.00',
       totalBetAmount: '0.00',
@@ -104,13 +127,17 @@ export class GameService {
       bettingStartTime: new Date(),
       bettingEndTime: new Date(Date.now() + bettingDuration * 1000),
       startTime: new Date(),
+      currentCardPosition: 0,
+      expectedNextSide: 'bahar', // Round always starts with Bahar
+      cardsDealt: 0,
     }).returning();
 
-    // Broadcast round created event
+    // Broadcast round created event with real opening card
     if (this.io) {
       this.io.to(`game:${gameId}`).emit(GAME_EVENTS.ROUND_CREATED, {
         round: newRound,
-        jokerCard: jokerCard.display,
+        openingCard: openingCard, // Send real card to clients
+        roundNumber: newRoundNumber,
       });
     }
 
@@ -200,7 +227,8 @@ export class GameService {
     return round;
   }
 
-  async dealCardsAndDetermineWinner(roundId: string) {
+  // NEW: Handle card dealing from admin (REAL stream card)
+  async dealCard(roundId: string, adminCard: string, side: 'andar' | 'bahar', position: number) {
     const round = await db.query.gameRounds.findFirst({
       where: eq(gameRounds.id, roundId),
     });
@@ -209,121 +237,129 @@ export class GameService {
       throw new AppError('Round not found', 404);
     }
 
-    if (round.status !== 'playing') {
-      throw new AppError('Round is not in progress', 400);
+    if (round.status !== 'playing' && round.status !== 'betting') {
+      throw new AppError('Round is not in dealing phase', 400);
     }
 
-    // Broadcast card dealing started
+    // Validate card format
+    if (!this.isValidCard(adminCard)) {
+      throw new AppError('Invalid card format. Use format like "AH", "KS", "10D"', 400);
+    }
+
+    // Validate expected side based on sequence
+    const expectedSide = this.calculateExpectedNextSide(round.roundNumber, round.cardsDealt || 0);
+    if (side !== expectedSide) {
+      throw new AppError(`Invalid card side. Expected: ${expectedSide.toUpperCase()}, got: ${side.toUpperCase()}`, 400);
+    }
+
+    // Check if this card matches the opening card (winner condition)
+    const isWinningCard = this.cardsMatch(round.jokerCard!, adminCard);
+
+    // Save the card to database
+    const [cardRecord] = await db.insert(gameCards).values({
+      gameId: round.gameId,
+      roundId: round.id,
+      card: adminCard,
+      side,
+      position,
+      isWinningCard,
+    }).returning();
+
+    // Update round card counters
+    await db.update(gameRounds).set({
+      cardsDealt: sql`${gameRounds.cardsDealt} + 1`,
+      currentCardPosition: position,
+      expectedNextSide: this.calculateExpectedNextSide(round.roundNumber, position),
+    }).where(eq(gameRounds.id, roundId));
+
+    // Broadcast card dealt event
     if (this.io) {
-      this.io.to(`game:${round.gameId}`).emit(GAME_EVENTS.DEALING_STARTED, {
+      this.io.to(`game:${round.gameId}`).emit(GAME_EVENTS.CARD_DEALT, {
         roundId,
-        jokerCard: round.jokerCard,
+        card: adminCard,
+        side,
+        position,
+        isWinningCard,
+        roundNumber: round.roundNumber,
+        expectedNextSide: this.calculateExpectedNextSide(round.roundNumber, position),
+        nextPosition: position + 1,
       });
-    }
 
-    const deck = this.createDeck();
-    const jokerRank = round.jokerCard?.replace(/[♠♥♦♣]/g, '') || '';
-    
-    let winningSide: 'andar' | 'bahar' = 'andar';
-    let currentSide: 'andar' | 'bahar' = 'andar';
-    let winningCard: Card | null = null;
-    const cardsDealt: { side: string; card: string }[] = [];
-
-    // Stream cards with delay for animation
-    for (let i = 1; i < deck.length; i++) {
-      const card = deck[i]!;
-      const isWinningCard = card.rank === jokerRank;
-      
-      cardsDealt.push({ side: currentSide, card: card.display });
-
-      // Broadcast each card as it's dealt
-      if (this.io) {
-        this.io.to(`game:${round.gameId}`).emit(GAME_EVENTS.CARD_DEALT, {
-          roundId,
-          side: currentSide,
-          card: card.display,
-          cardNumber: i,
-          isWinningCard,
-        });
-      }
-
+      // If this is the winning card, complete the game
       if (isWinningCard) {
-        winningSide = currentSide;
-        winningCard = card;
-        break;
+        await this.completeGameWithWinner(roundId, side, adminCard);
       }
-
-      currentSide = currentSide === 'andar' ? 'bahar' : 'andar';
-      
-      // Add delay between cards (simulate real dealing)
-      await new Promise(resolve => setTimeout(resolve, 800));
     }
 
-    const [updatedRound] = await db
+    return {
+      card: cardRecord,
+      isWinningCard,
+    };
+  }
+
+  // NEW: Complete game with winner
+  private async completeGameWithWinner(roundId: string, winningSide: 'andar' | 'bahar', winningCard: string) {
+    const round = await db.query.gameRounds.findFirst({
+      where: eq(gameRounds.id, roundId),
+    });
+
+    if (!round) return;
+
+    const [completedRound] = await db
       .update(gameRounds)
       .set({
         status: 'completed',
         winningSide,
-        winningCard: winningCard?.display,
+        winningCard,
         endTime: new Date(),
       })
       .where(eq(gameRounds.id, roundId))
       .returning();
 
-    // Calculate winner display text based on round number
-    let winnerDisplay = '';
-    if (round.roundNumber === 1 || round.roundNumber === 2) {
-      // Rounds 1-2: Use "BABA WON" for Bahar side
-      winnerDisplay = winningSide === 'andar' ? 'ANDAR WON' : 'BABA WON';
-    } else {
-      // Round 3+: Use proper "BAHAR WON" terminology
-      winnerDisplay = winningSide === 'andar' ? 'ANDAR WON' : 'BAHAR WON';
-    }
+    // Process payouts for all bets in this round
+    await this.processPayouts(roundId, winningSide);
 
-    // Broadcast winner determined
+    // Determine winner display text based on round
+    const winnerDisplayText = this.getWinnerDisplayText(completedRound.roundNumber!, winningSide);
+
+    // Broadcast winner declaration
     if (this.io) {
-      this.io.to(`game:${round.gameId}`).emit(GAME_EVENTS.WINNER_DETERMINED, {
+      this.io.to(`game:${completedRound.gameId}`).emit(GAME_EVENTS.WINNER_DETERMINED, {
         roundId,
-        round: updatedRound,
         winningSide,
-        winningCard: winningCard?.display,
-        winnerDisplay, // Include calculated winner display text
-        totalCards: cardsDealt.length,
+        winningCard,
+        winnerDisplayText,
+        totalCards: completedRound.cardsDealt,
+        round: completedRound.roundNumber,
       });
     }
-
-    // Check if Round 2 is needed (only if Round 1 winner is Bahar)
-    if (round.roundNumber === 1 && winningSide === 'bahar') {
-      // Broadcast Round 2 announcement
-      if (this.io) {
-        this.io.to(`game:${round.gameId}`).emit(GAME_EVENTS.ROUND_2_ANNOUNCEMENT, {
-          message: 'Bahar won Round 1! Round 2 will start in 5 seconds...',
-          nextRoundIn: 5000,
-        });
-      }
-
-      // Auto-create Round 2 after delay
-      setTimeout(async () => {
-        const round2 = await this.createNewRound(round.gameId);
-        await this.startRound(round2.id);
-      }, 5000);
-    }
-
-    return {
-      round: updatedRound,
-      winningSide,
-      winningCard: winningCard?.display,
-      cardsDealt,
-    };
   }
 
-  async processPayouts(roundId: string) {
+  // NEW: Get proper winner display text based on round
+  private getWinnerDisplayText(roundNumber: number, winningSide: 'andar' | 'bahar'): string {
+    if (roundNumber === 1 || roundNumber === 2) {
+      // Rounds 1-2: Use "BABA" for Bahar
+      return winningSide === 'andar' ? 'ANDAR WON' : 'BABA WON';
+    } else {
+      // Round 3+: Use proper "BAHAR" name
+      return winningSide === 'andar' ? 'ANDAR WON' : 'BAHAR WON';
+    }
+  }
+
+  // DEPRECATED: This method is replaced by real-time admin card input via dealCard()
+  // Keeping for backward compatibility, but it should not be used
+  async dealCardsAndDetermineWinner(roundId: string) {
+    throw new AppError('This method is deprecated. Use admin card input via dealCard() instead.', 400);
+  }
+
+  // NEW: Process payouts with round-specific logic
+  async processPayouts(roundId: string, winningSide: 'andar' | 'bahar') {
     const round = await db.query.gameRounds.findFirst({
       where: eq(gameRounds.id, roundId),
     });
 
-    if (!round || !round.winningSide) {
-      throw new AppError('Round not complete', 400);
+    if (!round) {
+      throw new AppError('Round not found', 404);
     }
 
     const roundBets = await db.query.bets.findMany({
@@ -336,29 +372,28 @@ export class GameService {
     for (const bet of roundBets) {
       const betAmount = parseFloat(bet.amount);
       let payout = 0;
-      let status: 'won' | 'lost' = 'lost';
+      let status: 'won' | 'lost' | 'refunded' = 'lost';
 
-      if (bet.betSide === round.winningSide) {
-        payout = betAmount * 2;
-        status = 'won';
+      if (bet.betSide === winningSide) {
+        // Calculate payout based on round-specific rules
+        payout = this.calculatePayout(bet, round.roundNumber, winningSide);
+        status = payout > betAmount ? 'won' : 'refunded';
         totalPayouts += payout;
         winnerUpdates.push({ userId: bet.userId, payout });
 
-        await db.update(bets).set({
-          status: 'won',
-          payoutAmount: payout.toFixed(2),
-        }).where(eq(bets.id, bet.id));
-
+        // Update user balance with winnings
         await db.update(users).set({
           balance: sql`balance + ${payout}`,
         }).where(eq(users.id, bet.userId));
-      } else {
-        await db.update(bets).set({
-          status: 'lost',
-          payoutAmount: '0.00',
-        }).where(eq(bets.id, bet.id));
       }
 
+      // Update bet record
+      await db.update(bets).set({
+        status,
+        payoutAmount: payout.toFixed(2),
+      }).where(eq(bets.id, bet.id));
+
+      // Create game history record
       await db.insert(gameHistory).values({
         userId: bet.userId,
         gameId: round.gameId,
@@ -366,7 +401,7 @@ export class GameService {
         betId: bet.id,
         roundNumber: round.roundNumber,
         betSide: bet.betSide,
-        betAmount: bet.amount,
+        betAmount: betAmount.toFixed(2),
         result: status,
         payoutAmount: payout.toFixed(2),
         jokerCard: round.jokerCard,
@@ -374,6 +409,7 @@ export class GameService {
       });
     }
 
+    // Update round with payout information
     await db.update(gameRounds).set({
       totalPayoutAmount: totalPayouts.toFixed(2),
     }).where(eq(gameRounds.id, roundId));
@@ -396,13 +432,47 @@ export class GameService {
       }
     }
 
-    // ✅ FIX #4: Auto-update game statistics after payout processing
-    await this.updateGameStatistics(round.gameId, roundId);
+    // Auto-update game statistics after payout processing
+    await this.updateGameStatistics(round.gameId, roundId, totalPayouts, roundBets.length);
 
     return { totalPayouts, betsProcessed: roundBets.length };
   }
 
-  async updateGameStatistics(gameId: string, roundId: string) {
+  // NEW: Calculate payout according to Andar Bahar rules
+  private calculatePayout(bet: any, roundNumber: number, winningSide: 'andar' | 'bahar'): number {
+    const betAmount = parseFloat(bet.amount);
+
+    if (roundNumber === 1) {
+      // Round 1: Andar 1:1 (double), Bahar 1:0 (refund only)
+      if (winningSide === 'andar' && bet.betSide === 'andar') {
+        return betAmount * 2; // 1:1 payout (stake + profit)
+      } else if (winningSide === 'bahar' && bet.betSide === 'bahar') {
+        return betAmount; // 1:0 payout (refund only)
+      }
+    } else if (roundNumber === 2) {
+      // Round 2: Complex logic - depends on which round bet was placed
+      if (winningSide === 'andar' && bet.betSide === 'andar') {
+        // All Andar bets (R1 + R2) get 1:1 payout
+        return betAmount * 2;
+      } else if (winningSide === 'bahar' && bet.betSide === 'bahar') {
+        // R1 Bahar: 1:1, R2 Bahar: 1:0
+        if (bet.betRound === 1) {
+          return betAmount * 2; // Round 1 Bahar gets full payout
+        } else {
+          return betAmount; // Round 2 Bahar gets refund only
+        }
+      }
+    } else {
+      // Round 3+: Both sides 1:1 on all bets
+      if (bet.betSide === winningSide) {
+        return betAmount * 2;
+      }
+    }
+
+    return 0; // No payout for losing bets
+  }
+
+  async updateGameStatistics(gameId: string, roundId: string, totalPayouts?: number, betCount?: number) {
     const round = await db.query.gameRounds.findFirst({
       where: eq(gameRounds.id, roundId),
     });
@@ -709,8 +779,5 @@ export class GameService {
     };
   }
 }
-
-// Import users for payout processing
-import { users } from '../db/schema';
 
 export const gameService = new GameService();

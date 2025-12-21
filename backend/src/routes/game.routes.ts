@@ -41,4 +41,7 @@ router.get('/:gameId/last-bets', authenticate, asyncHandler(gameController.getLa
 // POST /api/games/rebet - Rebet previous round
 router.post('/rebet', authenticate, asyncHandler(gameController.rebetPreviousRound.bind(gameController)));
 
+// POST /api/games/double-bets - Double current bets
+router.post('/double-bets', authenticate, asyncHandler(gameController.doubleBets.bind(gameController)));
+
 export default router;

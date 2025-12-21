@@ -9,12 +9,11 @@ export const useGame = () => {
   // Store state
   const {
     currentRound,
-    gameState,
-    bets,
-    addBet,
-    removeBet,
+    currentGame,
+    myBets,
+    addMyBet,
     clearBets,
-    setGameState,
+    setCurrentGame,
   } = useGameStore();
 
   // Query hooks
@@ -28,8 +27,8 @@ export const useGame = () => {
   return {
     // State
     currentRound: currentRoundData || currentRound,
-    gameState: currentGameData?.state || gameState,
-    bets,
+    currentGame: currentGameData || currentGame,
+    myBets,
     
     // Loading states
     isLoading: isLoadingRound || isLoadingGame,
@@ -39,9 +38,8 @@ export const useGame = () => {
     // Actions
     placeBet: placeBetMutation.mutate,
     cancelBet: cancelBetMutation.mutate,
-    addBet,
-    removeBet,
+    addBet: addMyBet,
     clearBets,
-    setGameState,
+    setCurrentGame,
   };
 };

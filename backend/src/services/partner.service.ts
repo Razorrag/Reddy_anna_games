@@ -4,10 +4,17 @@ import { eq, and, desc, sql, gte, lte } from 'drizzle-orm';
 import { AppError } from '../middleware/errorHandler';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { Server as SocketIOServer } from 'socket.io';
 
 export class PartnerService {
   private readonly JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
   private readonly JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+  private io?: SocketIOServer;
+
+  // Set Socket.IO instance for real-time broadcasts
+  setIo(ioInstance: SocketIOServer) {
+    this.io = ioInstance;
+  }
 
   // Register new partner
   async registerPartner(data: {

@@ -14,6 +14,8 @@ import CardHistory from './CardHistory';
 import ProgressBar from './ProgressBar';
 import { VideoPlayer } from '../VideoPlayer';
 import { WinnerCelebration } from '../WinnerCelebration';
+import CardSequenceDisplay from './CardSequenceDisplay';
+import RoundTransition from '../RoundTransition';
 import { useAuth } from '@/hooks/useAuth';
 
 interface MobileGameLayoutProps {
@@ -75,6 +77,11 @@ const MobileGameLayout: React.FC<MobileGameLayoutProps> = ({
         {/* Video Area - 65-70% screen height with timer overlay */}
         <div className="flex-1 relative min-h-0">
           <VideoPlayer className="w-full h-full" />
+          
+          {/* Card Sequence Display Overlay - Shows dealt cards in real-time */}
+          <div className="absolute bottom-0 left-0 right-0">
+            <CardSequenceDisplay className="w-full" />
+          </div>
         </div>
 
         {/* Betting Strip - Andar/Joker Card/Bahar */}
@@ -116,6 +123,9 @@ const MobileGameLayout: React.FC<MobileGameLayoutProps> = ({
 
         {/* Progress Bar - Bottom phase indicator */}
         <ProgressBar className="h-1" />
+
+        {/* Round Transition Notification */}
+        <RoundTransition />
 
         {/* Winner Celebration - Overlays entire game layout */}
         <WinnerCelebration />

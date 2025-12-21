@@ -10,7 +10,7 @@ import { toast } from 'sonner';
  */
 export const useLogout = () => {
   const [, setLocation] = useLocation();
-  const clearAuth = useAuthStore((state) => state.clearAuth);
+  const logout = useAuthStore((state) => state.logout);
 
   return useMutation({
     mutationFn: async () => {
@@ -18,7 +18,7 @@ export const useLogout = () => {
     },
     onSuccess: () => {
       // Clear auth state
-      clearAuth();
+      logout();
       
       // Clear all cached queries
       queryClient.clear();

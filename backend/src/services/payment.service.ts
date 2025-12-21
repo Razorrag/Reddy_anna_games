@@ -120,11 +120,13 @@ export class PaymentService {
 
     // Create deposit bonus if applicable
     let bonusAmount = 0;
+    let depositBonusId: string | null = null;
+    
     if (bonusPercentage > 0) {
       bonusAmount = amount * (bonusPercentage / 100);
       const wageringRequired = amount * wageringMultiplier;
 
-      await db.insert(userBonuses).values({
+      const [depositBonus] = await db.insert(userBonuses).values({
         userId: deposit.userId,
         bonusType: 'deposit',
         amount: bonusAmount.toFixed(2),
@@ -132,7 +134,9 @@ export class PaymentService {
         wageringProgress: '0.00',
         status: 'active',
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      });
+      }).returning();
+
+      depositBonusId = depositBonus.id;
 
       // Broadcast bonus received
       if (this.io) {
@@ -144,8 +148,10 @@ export class PaymentService {
       }
     }
 
-    // Process referral bonus
-    await this.processReferralBonus(deposit.userId, amount);
+    // Process referral bonus (creates locked referral bonus linked to deposit bonus)
+    if (depositBonusId) {
+      await this.processReferralBonus(deposit.userId, amount, depositBonusId);
+    }
 
     return { success: true, depositId, amount, bonusAmount };
   }
@@ -175,7 +181,7 @@ export class PaymentService {
     return { success: true, depositId };
   }
 
-  private async processReferralBonus(userId: string, depositAmount: number) {
+  private async processReferralBonus(userId: string, depositAmount: number, depositBonusId: string) {
     const user = await db.query.users.findFirst({
       where: eq(users.id, userId),
     });
@@ -208,50 +214,52 @@ export class PaymentService {
 
     if (monthlyReferrals.length >= referralSettings.maxReferralsPerMonth) return;
 
-    // Create referral bonus
+    // Create LOCKED referral bonus (legacy behavior - waits for deposit bonus to complete)
     const bonusPercentage = referralSettings.bonusPercentage;
-    const bonusAmount = depositAmount * (bonusPercentage / 100);
+    const referralBonusAmount = depositAmount * (bonusPercentage / 100);
+    const wageringRequired = referralBonusAmount * 30; // Same wagering as deposit bonus
 
+    // Find the referrer's oldest locked/active deposit bonus to link to
+    const referrerDepositBonus = await db.query.userBonuses.findFirst({
+      where: and(
+        eq(userBonuses.userId, user.referredBy),
+        eq(userBonuses.bonusType, 'deposit'),
+        sql`${userBonuses.status} IN ('locked', 'active')`
+      ),
+      orderBy: [userBonuses.createdAt], // FIFO - link to oldest
+    });
+
+    // Create locked referral bonus linked to referrer's deposit bonus (if exists)
+    // Otherwise link to the referred user's deposit bonus
+    const linkedBonusId = referrerDepositBonus?.id || depositBonusId;
+
+    await db.insert(userBonuses).values({
+      userId: user.referredBy,
+      bonusType: 'referral',
+      amount: referralBonusAmount.toFixed(2),
+      wageringRequirement: wageringRequired.toFixed(2),
+      wageringProgress: '0.00',
+      status: 'locked', // LOCKED - will unlock when linked deposit bonus completes
+      linkedBonusId: linkedBonusId, // Link to deposit bonus
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    });
+
+    // Update referral tracking
     await db.update(referrals).set({
-      status: 'completed',
-      bonusEarned: bonusAmount.toFixed(2),
-      completedAt: new Date(),
+      status: 'pending', // Changed from 'completed' to 'pending' until bonus unlocks
+      bonusEarned: referralBonusAmount.toFixed(2),
     }).where(and(
       eq(referrals.referrerId, user.referredBy),
       eq(referrals.referredId, userId)
     ));
 
-    // Credit referrer
-    await db.update(users).set({
-      balance: sql`${users.balance} + ${bonusAmount}`,
-      updatedAt: new Date(),
-    }).where(eq(users.id, user.referredBy));
-
-    await db.insert(transactions).values({
-      userId: user.referredBy,
-      type: 'bonus',
-      amount: bonusAmount.toFixed(2),
-      status: 'completed',
-      description: `Referral bonus for ${user.username}`,
-    });
-
-    // Get updated referrer balance
-    const referrer = await db.query.users.findFirst({
-      where: eq(users.id, user.referredBy),
-    });
-
-    // Broadcast referral bonus to referrer
-    if (this.io && referrer) {
-      this.io.to(`user:${user.referredBy}`).emit('bonus:referral_earned', {
+    // Broadcast that referral bonus is created but locked
+    if (this.io) {
+      this.io.to(`user:${user.referredBy}`).emit('bonus:referral_locked', {
         referredUsername: user.username,
-        bonusAmount,
-        newBalance: referrer.balance,
-      });
-
-      this.io.to(`user:${user.referredBy}`).emit('user:balance_updated', {
-        balance: referrer.balance,
-        change: bonusAmount,
-        reason: 'referral_bonus',
+        bonusAmount: referralBonusAmount,
+        status: 'locked',
+        message: 'Referral bonus will be unlocked when deposit bonus wagering is complete',
       });
     }
   }

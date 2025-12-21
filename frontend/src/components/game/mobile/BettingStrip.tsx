@@ -26,14 +26,14 @@ const BettingStrip: React.FC<BettingStripProps> = ({
   isPlacingBet,
   className = ''
 }) => {
-  const { gameState, currentRound, bets } = useGame();
+  const { currentGame, currentRound, myBets } = useGame();
   const { user, balance } = useAuth();
   
   const userBalance = typeof balance === 'number' ? balance : user?.mainBalance || 0;
 
   // Calculate bet totals per side and round
   const betTotals = useMemo(() => {
-    const typedBets = (bets || []) as Bet[];
+    const typedBets = (myBets || []) as Bet[];
     const round1Bets = typedBets.filter((b: Bet) => b.roundId === currentRound?.id && currentRound?.roundNumber === 1);
     const round2Bets = typedBets.filter((b: Bet) => b.roundId === currentRound?.id && currentRound?.roundNumber === 2);
     
@@ -43,7 +43,7 @@ const BettingStrip: React.FC<BettingStripProps> = ({
       r2Andar: round2Bets.filter((b: Bet) => b.side === 'andar').reduce((sum: number, b: Bet) => sum + b.amount, 0),
       r2Bahar: round2Bets.filter((b: Bet) => b.side === 'bahar').reduce((sum: number, b: Bet) => sum + b.amount, 0)
     };
-  }, [bets, currentRound]);
+  }, [myBets, currentRound]);
 
   const handleBetClick = (position: 'andar' | 'bahar') => {
     if (isPlacingBet || currentRound?.status !== 'betting') {
@@ -114,13 +114,13 @@ const BettingStrip: React.FC<BettingStripProps> = ({
             </div>
             {/* Latest Card Display */}
             <div className="flex-shrink-0">
-              {gameState.andarCards && gameState.andarCards.length > 0 ? (
+              {currentGame?.andarCards && currentGame.andarCards.length > 0 ? (
                 <div className="flex flex-col items-center">
                   <div className="text-2xl font-bold text-white drop-shadow-lg">
-                    {gameState.andarCards[gameState.andarCards.length - 1].display}
+                    {currentGame.andarCards[currentGame.andarCards.length - 1].display}
                   </div>
                   <div className="text-[10px] text-gray-400 mt-0.5">
-                    ({gameState.andarCards.length})
+                    ({currentGame.andarCards.length})
                   </div>
                 </div>
               ) : (
@@ -132,10 +132,10 @@ const BettingStrip: React.FC<BettingStripProps> = ({
 
         {/* Opening Card Section - Center */}
         <div className="w-16 flex-shrink-0 bg-gradient-to-b from-gold/40 to-gold/60 rounded-lg px-1 py-2 border-2 border-gold/50 flex flex-col justify-center items-center shadow-lg shadow-gold/20">
-          {gameState.jokerCard ? (
+          {currentGame?.jokerCard ? (
             <div className="relative flex flex-col items-center justify-center gap-0.5">
               <div className="text-2xl font-bold text-gold transform transition-all duration-300 hover:scale-110 drop-shadow-lg">
-                {gameState.jokerCard}
+                {currentGame.jokerCard}
               </div>
             </div>
           ) : (
@@ -177,13 +177,13 @@ const BettingStrip: React.FC<BettingStripProps> = ({
           <div className="flex items-center justify-between h-full px-2 py-1 gap-2">
             {/* Latest Card Display */}
             <div className="flex-shrink-0">
-              {gameState.baharCards && gameState.baharCards.length > 0 ? (
+              {currentGame?.baharCards && currentGame.baharCards.length > 0 ? (
                 <div className="flex flex-col items-center">
                   <div className="text-2xl font-bold text-white drop-shadow-lg">
-                    {gameState.baharCards[gameState.baharCards.length - 1].display}
+                    {currentGame.baharCards[currentGame.baharCards.length - 1].display}
                   </div>
                   <div className="text-[10px] text-gray-400 mt-0.5">
-                    ({gameState.baharCards.length})
+                    ({currentGame.baharCards.length})
                   </div>
                 </div>
               ) : (

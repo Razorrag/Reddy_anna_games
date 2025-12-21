@@ -8,22 +8,54 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300",
         destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all duration-300",
         outline:
-          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+          "border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-all duration-300",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-all duration-300",
+        ghost: "hover:bg-accent hover:text-accent-foreground transition-all duration-300",
         link: "text-primary underline-offset-4 hover:underline",
-        // Custom variants for gaming theme
-        gold: "bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-[#0A0E27] hover:from-[#FFA500] hover:to-[#FFD700] shadow-lg shadow-[#FFD700]/20 font-semibold",
-        neon: "bg-gradient-to-r from-[#00F5FF] to-[#00D4FF] text-[#0A0E27] hover:from-[#00D4FF] hover:to-[#00F5FF] shadow-lg shadow-[#00F5FF]/30 font-semibold",
-        royal: "bg-gradient-to-br from-[#0A0E27] to-[#1a1f3a] text-[#FFD700] border-2 border-[#FFD700]/30 hover:border-[#FFD700] shadow-lg hover:shadow-[#FFD700]/20",
-        // Premium Metallic Variants
-        'premium-gold': "bg-premium-gold text-[#0A0E27] font-bold shadow-glow-gold hover:shadow-gold-glow-strong border border-[#FFD700]/50 relative overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]",
-        'premium-royal': "bg-premium-royal text-[#FFD700] font-bold shadow-glow-royal hover:shadow-royal-lg border border-[#FFD700]/30 relative overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]",
+        
+        // Electric Blue - Primary Action
+        electric: "bg-electric-blue text-white hover:shadow-glow-blue-xl hover:brightness-110 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 font-bold animate-glow-electric",
+        
+        'electric-outline': "bg-casino-darkest border-2 border-glow-blue text-glow-blue hover:bg-glow-blue hover:text-casino-black hover:shadow-glow-blue-lg hover:scale-[1.02] transition-all duration-300 font-bold",
+        
+        // Metallic Green - Professional Accent
+        'metallic': "bg-metallic-green-shine text-white hover:shadow-glow-metallic-lg hover:brightness-110 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 font-semibold shadow-metallic-sheen animate-glow-metallic",
+        
+        'metallic-outline': "bg-casino-darkest border-2 border-metallic-green-shine text-glow-emerald hover:bg-metallic-green hover:text-white hover:shadow-glow-emerald-lg hover:scale-[1.02] transition-all duration-300 font-semibold",
+        
+        // Emerald Green - Success Actions
+        'emerald': "bg-btn-emerald text-white hover:shadow-glow-emerald-lg hover:brightness-110 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 font-bold animate-glow-emerald",
+        
+        // Blue + Green Combination - Premium
+        'blue-emerald': "bg-blue-emerald text-white hover:shadow-glow-professional hover:brightness-110 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 font-bold",
+        
+        // Purple Glow - Partner Actions
+        'purple-glow': "bg-btn-purple text-white hover:shadow-glow-purple-lg hover:brightness-110 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 font-bold",
+        
+        // Multi-color - Ultra Premium
+        'multi-glow': "bg-btn-multi text-white hover:shadow-glow-rainbow hover:brightness-110 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 font-bold bg-[length:200%_auto] animate-fluid-gradient",
+        
+        // Dark Glass - Subtle Actions
+        'dark-glass': "bg-casino-darker/80 backdrop-blur-sm border border-glow-blue/20 text-glow-blue hover:bg-casino-darker hover:border-glow-blue/50 hover:shadow-glow-blue hover:scale-[1.02] transition-all duration-300",
+        
+        'dark-glass-emerald': "bg-casino-darker/80 backdrop-blur-sm border border-glow-emerald/20 text-glow-emerald hover:bg-casino-darker hover:border-glow-emerald/50 hover:shadow-glow-emerald hover:scale-[1.02] transition-all duration-300",
+        
+        // Game specific
+        andar: "bg-andar-gradient text-white hover:shadow-andar-glow hover:scale-[1.02] transition-all duration-300 font-bold border border-error-DEFAULT/30",
+        
+        bahar: "bg-bahar-gradient text-white hover:shadow-bahar-glow hover:scale-[1.02] transition-all duration-300 font-bold border border-info-DEFAULT/30",
+        
+        // Legacy gold variants
+        gold: "bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600 text-white hover:shadow-lg hover:shadow-yellow-500/50 hover:scale-[1.02] transition-all duration-300 font-bold",
+        
+        'premium-gold': "bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600 text-white hover:shadow-xl hover:shadow-amber-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 font-bold animate-shimmer",
+        
+        neon: "bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 text-white hover:shadow-lg hover:shadow-cyan-500/50 hover:scale-[1.02] transition-all duration-300 font-bold",
       },
       size: {
         default: "h-10 px-4 py-2",

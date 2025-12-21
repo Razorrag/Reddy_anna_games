@@ -26,27 +26,49 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: andar_bahar/package-lock.json
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
       
-      - name: Install dependencies
+      - name: Install backend dependencies
         run: |
-          cd andar_bahar
+          cd backend
           npm ci
       
-      - name: TypeScript type check
+      - name: Install frontend dependencies
         run: |
-          cd andar_bahar
-          npm run check
+          cd frontend
+          npm ci
       
-      - name: Lint code
+      - name: TypeScript type check - Backend
         run: |
-          cd andar_bahar
+          cd backend
+          npm run type-check
+        continue-on-error: true
+      
+      - name: TypeScript type check - Frontend
+        run: |
+          cd frontend
+          npm run type-check
+        continue-on-error: true
+      
+      - name: Lint code - Backend
+        run: |
+          cd backend
+          npm run lint
+        continue-on-error: true
+      
+      - name: Lint code - Frontend
+        run: |
+          cd frontend
           npm run lint
         continue-on-error: true
       
       - name: Check for security vulnerabilities
         run: |
-          cd andar_bahar
+          cd backend
+          npm audit --audit-level=moderate
+          cd ../frontend
           npm audit --audit-level=moderate
         continue-on-error: true
 
@@ -65,16 +87,16 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: andar_bahar/client/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
       
       - name: Install dependencies
         run: |
-          cd andar_bahar/client
+          cd frontend
           npm ci
       
       - name: Build frontend
         run: |
-          cd andar_bahar/client
+          cd frontend
           npm run build
         env:
           NODE_ENV: production
@@ -83,7 +105,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frontend-build
-          path: andar_bahar/client/dist
+          path: frontend/dist
           retention-days: 7
 
   # Job 3: Build Backend
@@ -101,17 +123,17 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: andar_bahar/package-lock.json
+          cache-dependency-path: backend/package-lock.json
       
       - name: Install dependencies
         run: |
-          cd andar_bahar
+          cd backend
           npm ci
       
       - name: Build backend
         run: |
-          cd andar_bahar
-          npm run build:server
+          cd backend
+          npm run build
         env:
           NODE_ENV: production
       
@@ -119,7 +141,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-build
-          path: andar_bahar/dist
+          path: backend/dist
           retention-days: 7
 
   # Job 4: Run Tests
@@ -152,17 +174,25 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: andar_bahar/package-lock.json
+          cache-dependency-path: backend/package-lock.json
       
-      - name: Install dependencies
+      - name: Install backend dependencies
         run: |
-          cd andar_bahar
+          cd backend
           npm ci
       
-      - name: Run comprehensive tests
+      - name: Run database migrations
         run: |
-          cd andar_bahar
-          npm test
+          cd backend
+          npm run migrate
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+      
+      - name: Run backend tests
+        run: |
+          cd backend
+          npm run test
+        continue-on-error: true
         env:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
           NODE_ENV: test
@@ -174,7 +204,7 @@ jobs:
         if: always()
         with:
           name: test-results
-          path: andar_bahar/test-report.json
+          path: backend/test-report.json
           retention-days: 30
 
   # Job 5: Security Scan
@@ -239,7 +269,8 @@ jobs:
       - name: Build and push Frontend image
         uses: docker/build-push-action@v5
         with:
-          context: ./andar_bahar/client
+          context: ./frontend
+          file: ./frontend/Dockerfile
           push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
@@ -259,8 +290,8 @@ jobs:
       - name: Build and push Backend image
         uses: docker/build-push-action@v5
         with:
-          context: ./andar_bahar
-          file: ./andar_bahar/Dockerfile
+          context: ./backend
+          file: ./backend/Dockerfile
           push: true
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}

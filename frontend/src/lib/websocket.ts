@@ -1,7 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import { useGameStore } from '@/store/gameStore';
 import { useAuthStore } from '@/store/authStore';
-import { GAME_EVENTS } from '@/shared/events.types';
+import { GAME_EVENTS } from '../shared/events.types';
 
 /**
  * WebSocket Service - Complete Legacy Game Flow Integration

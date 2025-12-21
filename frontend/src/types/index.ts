@@ -10,15 +10,29 @@ export interface User {
   id: string;
   phone: string;
   name: string;
+  full_name?: string; // Backend sends this
+  username?: string; // Backend may send this
   email: string | null;
   role: 'player' | 'admin' | 'partner';
   mainBalance: number;
+  balance?: number; // Backend sends this
   bonusBalance: number;
+  bonus_balance?: number; // Backend sends this
   referralCode: string;
+  referral_code?: string; // Backend sends this
   referredBy: string | null;
+  referred_by?: string | null; // Backend sends this
   isActive: boolean;
+  status?: 'active' | 'suspended' | 'banned'; // Backend sends this
+  isVerified?: boolean;
+  is_verified?: boolean; // Backend sends this
+  verification_status?: string; // Backend may send this
   createdAt: string;
+  created_at?: string; // Backend sends this
   updatedAt: string;
+  updated_at?: string; // Backend sends this
+  statistics?: UserStatistics; // For user details page
+  documents?: any[]; // For verification page
 }
 
 export interface UserStatistics {
@@ -49,6 +63,7 @@ export interface Game {
   maxBet: number;
   settings: GameSettings;
   createdAt: string;
+  state?: 'idle' | 'waiting' | 'betting' | 'playing' | 'dealing' | 'complete' | 'completed' | 'no_winner' | 'cancelled'; // Current game state
 }
 
 export interface GameSettings {
@@ -62,14 +77,17 @@ export interface GameRound {
   gameId: string;
   roundNumber: number;
   status: 'betting' | 'dealing' | 'complete' | 'cancelled';
+  state?: 'idle' | 'waiting' | 'betting' | 'playing' | 'dealing' | 'complete' | 'completed' | 'no_winner' | 'cancelled'; // Legacy compatibility
   jokerCard: string | null;
   winningCard: string | null;
   winingSide: 'andar' | 'bahar' | null;
+  winningSide?: 'andar' | 'bahar' | null; // Alternative spelling
   totalAndarBets: number;
   totalBaharBets: number;
   totalPayout: number;
   startedAt: string;
   endedAt: string | null;
+  bettingEndTime?: string; // For timer display
 }
 
 export interface Bet {
@@ -140,10 +158,11 @@ export interface Bonus {
   amount: number;
   wageringRequirement: number;
   wageringCompleted: number;
-  status: 'active' | 'unlocked' | 'expired' | 'cancelled';
+  status: 'locked' | 'active' | 'unlocked' | 'expired' | 'cancelled' | 'completed';
   expiresAt: string | null;
   unlockedAt: string | null;
   createdAt: string;
+  linkedBonusId?: string | null; // For referral bonuses linked to deposit bonuses
 }
 
 // ============================================

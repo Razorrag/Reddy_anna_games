@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { gameService } from '../services/game.service';
+import { betService } from '../services/bet.service';
 import { AuthRequest } from '../middleware/auth';
 
 export class GameController {
@@ -35,7 +36,13 @@ export class GameController {
   async createNewRound(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { gameId } = req.params;
-      const round = await gameService.createNewRound(gameId);
+      const { openingCard } = req.body;
+
+      if (!openingCard) {
+        return res.status(400).json({ message: 'Opening card is required' });
+      }
+
+      const round = await gameService.createNewRound(gameId, openingCard);
 
       res.status(201).json({
         message: 'New round created',
@@ -76,15 +83,25 @@ export class GameController {
     }
   }
 
-  // Deal cards and determine winner (admin only)
+  // Deal cards (admin only) - Admin inputs actual stream cards
   async dealCards(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { roundId } = req.params;
-      const round = await gameService.dealCardsAndDetermineWinner(roundId);
+      const { card, side, position } = req.body;
+
+      if (!card || !side) {
+        return res.status(400).json({ message: 'Card and side are required' });
+      }
+
+      if (!['andar', 'bahar'].includes(side)) {
+        return res.status(400).json({ message: 'Side must be "andar" or "bahar"' });
+      }
+
+      const result = await gameService.dealCard(roundId, card, side, position || 0);
 
       res.json({
-        message: 'Cards dealt, winner determined',
-        round,
+        message: 'Card dealt successfully',
+        ...result,
       });
     } catch (error) {
       next(error);
@@ -148,15 +165,22 @@ export class GameController {
   async undoLastBet(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id;
-      const { roundId } = req.body;
+      const { betId } = req.body;
 
       if (!userId) {
         return res.status(401).json({ message: 'Unauthorized' });
       }
 
-      const result = await gameService.undoLastBet(userId, roundId);
+      if (!betId) {
+        return res.status(400).json({ message: 'Bet ID is required' });
+      }
 
-      res.json(result);
+      const result = await betService.undoBet(betId, userId);
+
+      res.json({
+        message: 'Bet undone successfully',
+        ...result,
+      });
     } catch (error) {
       next(error);
     }
@@ -184,15 +208,47 @@ export class GameController {
   async rebetPreviousRound(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id;
-      const { gameId, currentRoundId } = req.body;
+      const { currentRoundId } = req.body;
 
       if (!userId) {
         return res.status(401).json({ message: 'Unauthorized' });
       }
 
-      const result = await gameService.rebetPreviousRound(userId, gameId, currentRoundId);
+      if (!currentRoundId) {
+        return res.status(400).json({ message: 'Current round ID is required' });
+      }
 
-      res.json(result);
+      const result = await betService.rebetPreviousRound(userId, currentRoundId);
+
+      res.json({
+        message: 'Previous bets replayed successfully',
+        ...result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Double all current bets
+  async doubleBets(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.id;
+      const { roundId } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      if (!roundId) {
+        return res.status(400).json({ message: 'Round ID is required' });
+      }
+
+      const result = await betService.doubleBets(userId, roundId);
+
+      res.json({
+        message: 'Bets doubled successfully',
+        ...result,
+      });
     } catch (error) {
       next(error);
     }

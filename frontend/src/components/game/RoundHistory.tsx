@@ -22,7 +22,7 @@ export function RoundHistory() {
     )
   }
 
-  const recentRounds = rounds?.items || []
+  const recentRounds = rounds || []
 
   return (
     <Card className="bg-black/40 border-[#FFD700]/30 backdrop-blur-sm">

@@ -150,17 +150,33 @@ export function initializeGameFlow(io: SocketIOServer) {
     // ADMIN EVENTS
     // ========================================
 
-    // Create new round
-    socket.on(GAME_EVENTS.ADMIN_CREATE_ROUND, async (gameId: string) => {
+    // Admin creates new round with opening card from stream
+    socket.on(GAME_EVENTS.ADMIN_CREATE_ROUND, async (data: { gameId: string; openingCard: string }) => {
       try {
         if (socket.userRole !== 'admin') {
           throw new Error('Unauthorized: Admin access required');
         }
 
-        // Service will emit ROUND_CREATED event
-        const round = await gameService.createNewRound(gameId);
+        const { gameId, openingCard } = data;
 
-        logger.info(`Admin ${socket.userId} created new round: ${round.id}`);
+        // Validate card format
+        if (!openingCard) {
+          throw new Error('Opening card is required');
+        }
+
+        // Create round with REAL stream card
+        const round = await gameService.createNewRound(gameId, openingCard);
+
+        // Broadcast opening card confirmed
+        if (io) {
+          io.to(`game:${gameId}`).emit(GAME_EVENTS.ROUND_CREATED, {
+            round,
+            openingCard,
+            message: `New round started! Opening card: ${openingCard}`
+          });
+        }
+
+        logger.info(`Admin ${socket.userId} created round with opening card: ${openingCard}`);
       } catch (error: any) {
         logger.error('Error creating round:', error);
         socket.emit(GAME_EVENTS.ADMIN_ERROR, { message: error.message });
@@ -201,38 +217,79 @@ export function initializeGameFlow(io: SocketIOServer) {
       }
     });
 
-    // Deal cards and determine winner
-    socket.on(GAME_EVENTS.ADMIN_DEAL_CARDS, async (roundId: string) => {
+    // Admin deals next card from stream
+    socket.on(GAME_EVENTS.ADMIN_DEAL_CARDS, async (data: {
+      roundId: string;
+      card: string;
+      side: 'andar' | 'bahar';
+      position?: number;
+    }) => {
       try {
         if (socket.userRole !== 'admin') {
           throw new Error('Unauthorized: Admin access required');
         }
 
-        // Service will emit DEALING_STARTED, CARD_DEALT (multiple), WINNER_DETERMINED, and ROUND_2_ANNOUNCEMENT (if needed)
-        const round = await gameService.dealCardsAndDetermineWinner(roundId);
+        const { roundId, card, side } = data;
 
-        logger.info(`Admin ${socket.userId} dealt cards for round: ${roundId}, Winner: ${round.winningSide}`);
+        // Validate card format
+        if (!card || !side || !['andar', 'bahar'].includes(side)) {
+          throw new Error('Card and valid side are required');
+        }
+
+        // Get current round to determine position
+        const round = await gameService.getRoundById(roundId);
+        if (!round) {
+          throw new Error('Round not found');
+        }
+        
+        const position = data.position || (round.cardsDealt || 0) + 1;
+
+        // Deal REAL stream card
+        const result = await gameService.dealCard(roundId, card, side, position);
+
+        // Card dealt event is handled in the service method
+
+        logger.info(`Admin dealt card ${card} on ${side} in round ${roundId} at position ${position}`);
       } catch (error: any) {
-        logger.error('Error dealing cards:', error);
+        logger.error('Error dealing card:', error);
         socket.emit(GAME_EVENTS.ADMIN_ERROR, { message: error.message });
       }
     });
 
-    // Process payouts
-    socket.on(GAME_EVENTS.ADMIN_PROCESS_PAYOUTS, async (roundId: string) => {
+    // Admin declares winner (when stream shows winner)
+    socket.on(GAME_EVENTS.ADMIN_DECLARE_WINNER, async (data: {
+      roundId: string;
+      winningSide: 'andar' | 'bahar';
+      winningCard: string;
+    }) => {
       try {
         if (socket.userRole !== 'admin') {
           throw new Error('Unauthorized: Admin access required');
         }
 
-        // Service will emit PAYOUTS_PROCESSED and BALANCE_UPDATED events
-        await betService.processRoundPayouts(roundId);
+        const { roundId, winningSide, winningCard } = data;
 
-        // Update game statistics
-        const roundBets = await betService.getRoundBets(roundId);
-        if (roundBets.length > 0) {
-          await gameService.updateGameStatistics(roundBets[0].gameId, roundId);
+        // Process payouts with winner
+        await gameService.processPayouts(roundId, winningSide);
+
+        logger.info(`Admin declared winner: ${winningSide} with card ${winningCard} in round ${roundId}`);
+      } catch (error: any) {
+        logger.error('Error declaring winner:', error);
+        socket.emit(GAME_EVENTS.ADMIN_ERROR, { message: error.message });
+      }
+    });
+
+    // Process payouts (deprecated - now handled automatically in dealCard/declareWinner)
+    socket.on(GAME_EVENTS.ADMIN_PROCESS_PAYOUTS, async (data: { roundId: string; winningSide: 'andar' | 'bahar' }) => {
+      try {
+        if (socket.userRole !== 'admin') {
+          throw new Error('Unauthorized: Admin access required');
         }
+
+        const { roundId, winningSide } = data;
+
+        // Process payouts with round-specific logic
+        await gameService.processPayouts(roundId, winningSide);
 
         logger.info(`Admin ${socket.userId} processed payouts for round: ${roundId}`);
       } catch (error: any) {

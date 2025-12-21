@@ -26,7 +26,7 @@ const MobileTopBar: React.FC<MobileTopBarProps> = ({
   onProfileClick,
   onBonusClick
 }) => {
-  const { gameState, currentRound } = useGame();
+  const { currentGame, currentRound } = useGame();
   const { user, balance } = useAuth();
   const displayBalance = balance || user?.mainBalance || 0;
   const roundNumber = currentRound?.roundNumber || 1;

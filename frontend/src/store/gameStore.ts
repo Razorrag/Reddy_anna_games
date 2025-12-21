@@ -36,6 +36,17 @@ interface WinnerPayoutData {
   totalBetAmount: number;
 }
 
+// Game statistics for admin/player display
+interface GameStats {
+  playerCount: number;
+  totalBetAmount: number;
+  andarBets: number;
+  baharBets: number;
+  totalBets: number;
+  andarPercentage: number;
+  baharPercentage: number;
+}
+
 interface GameState {
   // Current game data
   currentGame: Game | null;
@@ -57,9 +68,14 @@ interface GameState {
   // Cards
   jokerCard: Card | null;
   openingCardDisplay: string | null; // "A♠" format for display
+  openingCard: string | null; // Raw opening card for admin
   andarCards: Card[];
   baharCards: Card[];
   winningCard: string | null;
+  
+  // Game statistics
+  gameStats: GameStats;
+  isBetting: boolean; // Is betting phase active
   
   // Timer
   timeRemaining: number;
@@ -100,6 +116,8 @@ interface GameState {
   rebetLastRound: () => void;
   doubleBets: () => void;
   addMyBet: (bet: Bet) => void;
+  addMyBets: (bets: Bet[]) => void;
+  removeMyBet: (betId: string) => void;
   setBettingLocked: (locked: boolean) => void;
   
   // Card actions
@@ -126,6 +144,10 @@ interface GameState {
   
   // Betting control
   setBetting: (canBet: boolean) => void;
+  setIsBetting: (isBetting: boolean) => void;
+  
+  // Game statistics
+  updateGameStats: (stats: Partial<GameStats>) => void;
   
   // Flash screen
   setShowFlash: (show: boolean) => void;
@@ -173,6 +195,7 @@ export const useGameStore = create<GameState>()(
       dealtCards: [],
       jokerCard: null,
       openingCardDisplay: null,
+      openingCard: null,
       andarCards: [],
       baharCards: [],
       winningCard: null,
@@ -186,6 +209,16 @@ export const useGameStore = create<GameState>()(
       winnerData: null,
       selectedChip: 2500,
       isConnected: false,
+      isBetting: false,
+      gameStats: {
+        playerCount: 0,
+        totalBetAmount: 0,
+        andarBets: 0,
+        baharBets: 0,
+        totalBets: 0,
+        andarPercentage: 0,
+        baharPercentage: 0,
+      },
 
       // Basic setters
       setCurrentGame: (game) => set({ currentGame: game }),
@@ -340,6 +373,24 @@ export const useGameStore = create<GameState>()(
             betHistory: [...state.betting.betHistory, bet],
           },
         })),
+      
+      addMyBets: (bets) =>
+        set((state) => ({
+          myBets: [...state.myBets, ...bets],
+          betting: {
+            ...state.betting,
+            betHistory: [...state.betting.betHistory, ...bets],
+          },
+        })),
+      
+      removeMyBet: (betId) =>
+        set((state) => ({
+          myBets: state.myBets.filter(bet => bet.id !== betId),
+          betting: {
+            ...state.betting,
+            betHistory: state.betting.betHistory.filter(bet => bet.id !== betId),
+          },
+        })),
 
       rebetLastRound: () => {
         const { lastRoundBets, betting } = get();
@@ -376,7 +427,10 @@ export const useGameStore = create<GameState>()(
 
       // Card actions
       setJokerCard: (card) => set({ jokerCard: card }),
-      setOpeningCard: (display) => set({ openingCardDisplay: display }),
+      setOpeningCard: (display) => set({
+        openingCardDisplay: display,
+        openingCard: display, // Also set raw card
+      }),
       setWinningCard: (card) => set({ winningCard: card }),
       
       addAndarCard: (card) =>
@@ -436,6 +490,14 @@ export const useGameStore = create<GameState>()(
           betting: { ...state.betting, canPlaceBet: canBet },
           bettingLocked: !canBet,
         })),
+      
+      setIsBetting: (isBetting) => set({ isBetting }),
+      
+      // Game statistics
+      updateGameStats: (stats) =>
+        set((state) => ({
+          gameStats: { ...state.gameStats, ...stats },
+        })),
 
       // Flash screen
       setShowFlash: (show) => set({ showFlash: show }),
@@ -480,6 +542,7 @@ export const useGameStore = create<GameState>()(
           dealtCards: [],
           jokerCard: null,
           openingCardDisplay: null,
+          openingCard: null,
           andarCards: [],
           baharCards: [],
           winningCard: null,
@@ -488,6 +551,16 @@ export const useGameStore = create<GameState>()(
           showWinnerCelebration: false,
           showNoWinnerNotification: false,
           winnerData: null,
+          isBetting: false,
+          gameStats: {
+            playerCount: 0,
+            totalBetAmount: 0,
+            andarBets: 0,
+            baharBets: 0,
+            totalBets: 0,
+            andarPercentage: 0,
+            baharPercentage: 0,
+          },
         }),
       
       resetForNewRound: () =>

@@ -275,6 +275,18 @@ export interface AnalyticsResponse {
   aggregates?: any;
   payments?: any[];
   total?: number;
+  totalUsers?: number;
+  userGrowth?: number;
+  activeUsers?: number;
+  activeGrowth?: number;
+  totalRevenue?: number;
+  revenueGrowth?: number;
+  gamesPlayed?: number;
+  gamesGrowth?: number;
+  avgBet?: number;
+  avgBetGrowth?: number;
+  winRate?: number;
+  winRateChange?: number;
   stats?: {
     totalRevenue: number;
     totalTransactions: number;
@@ -325,6 +337,7 @@ export interface DashboardStatsResponse {
 export interface GameHistoryResponse {
   games?: any[];
   rounds?: any[];
+  items?: any[]; // Alternative property name
   stats?: any;
   pagination?: {
     page: number;
@@ -402,14 +415,11 @@ export interface TransactionFilters {
   status?: string;
   startDate?: string;
   endDate?: string;
+  page?: number;
+  limit?: number;
 }
 
-export interface TransactionsResponse {
-  transactions: any[];
-  pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
+export interface TransactionsResponse extends PaginatedResponse<any> {
+  transactions?: any[]; // Alternative property
+  items?: any[]; // Standard property
 }
