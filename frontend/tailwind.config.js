@@ -16,6 +16,18 @@ export default {
     },
     extend: {
       colors: {
+        // Royal Theme Colors (referenced in index.css)
+        royal: {
+          dark: '#0A0E27',      // Main background
+          medium: '#1A1F3A',    // Card backgrounds
+          light: '#2A3154',     // Borders and accents
+        },
+        gold: {
+          DEFAULT: '#FFD700',   // Primary gold
+          light: '#FFA500',     // Light gold/orange
+        },
+        'neon-cyan': '#00F5FF',
+        
         // Ultra Dark Casino Theme - Almost Black Base
         casino: {
           black: '#000000',

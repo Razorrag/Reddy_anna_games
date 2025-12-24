@@ -1,0 +1,96 @@
+services:
+  # Backend API Service
+  - type: web
+    name: reddy-anna-backend
+    runtime: node
+    region: singapore
+    plan: free
+    buildCommand: cd backend && npm install && npm run build
+    startCommand: cd backend && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: reddy-anna-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: reddy-anna-redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_EMAIL
+        value: admin@reddyanna.com
+      - key: ADMIN_PASSWORD
+        value: Admin@123456
+      - key: SIGNUP_BONUS_AMOUNT
+        value: 100
+      - key: DEPOSIT_BONUS_PERCENTAGE
+        value: 5
+      - key: REFERRAL_BONUS_AMOUNT
+        value: 50
+      - key: WAGERING_MULTIPLIER
+        value: 30
+      - key: MIN_BET_AMOUNT
+        value: 10
+      - key: MAX_BET_AMOUNT
+        value: 100000
+      - key: BETTING_DURATION_SECONDS
+        value: 30
+
+  # Frontend Static Site
+  - type: web
+    name: reddy-anna-frontend
+    runtime: static
+    region: singapore
+    plan: free
+    buildCommand: cd frontend && npm install && VITE_API_URL=$VITE_API_URL VITE_WS_URL=$VITE_WS_URL npm run build
+    staticPublishPath: frontend/dist
+    pullRequestPreviewsEnabled: true
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+      - key: VITE_WS_URL
+        sync: false
+      - key: VITE_ENV
+        value: production
+
+databases:
+  # PostgreSQL Database
+  - name: reddy-anna-db
+    region: singapore
+    plan: free
+    databaseName: reddy_anna
+    user: postgres
+    ipAllowList: []
+
+  # Redis Cache
+  - name: reddy-anna-redis
+    region: singapore
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
